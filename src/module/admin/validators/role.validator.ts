@@ -17,7 +17,8 @@ export const createRoleSchema = z.object({
   description: z.string().optional(),
   permissionIds: z
     .array(z.string(), { message: "Permissions must be an array of permission IDs" })
-    .min(1, "At least one permission must be selected"),
+    .optional()
+    .default([]),
 });
 
 export const updateRoleSchema = z.object({

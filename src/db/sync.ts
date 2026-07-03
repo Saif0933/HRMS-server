@@ -53,6 +53,27 @@ export async function syncDatabase() {
       CREATE INDEX IF NOT EXISTS "_PermissionToRole_B_index" ON "_PermissionToRole"("B");
     `);
 
+    // 3.5. Create departments table and indices
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "departments" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "code" TEXT NOT NULL,
+        "description" TEXT,
+        "managerId" TEXT,
+        "parentId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "departments_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "departments_name_key" ON "departments"("name");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "departments_code_key" ON "departments"("code");
+    `);
+
     // 4. Handle "users" table creation/alteration
     try {
       await prisma.$queryRawUnsafe(`SELECT 1 FROM "users" LIMIT 1`);
@@ -124,6 +145,26 @@ export async function syncDatabase() {
           FOREIGN KEY ("B") REFERENCES "roles"("id") 
           ON DELETE CASCADE ON UPDATE CASCADE;
         END IF;
+
+        -- departments -> users (managerId)
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'departments_managerId_fkey'
+        ) THEN
+          ALTER TABLE "departments" ADD CONSTRAINT "departments_managerId_fkey" 
+          FOREIGN KEY ("managerId") REFERENCES "users"("id") 
+          ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+
+        -- departments -> departments (parentId self-relation)
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'departments_parentId_fkey'
+        ) THEN
+          ALTER TABLE "departments" ADD CONSTRAINT "departments_parentId_fkey" 
+          FOREIGN KEY ("parentId") REFERENCES "departments"("id") 
+          ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
       END $$;
     `);
 
@@ -159,6 +200,18 @@ export async function syncDatabase() {
           data: { roleId: superAdminRoleObj.id },
         });
         console.log(`[DB Sync] Auto-assigned ${usersWithoutRole.length} user(s) without roles to SUPER_ADMIN role.`);
+      }
+
+      // Ensure test user with phone "6200065370" is SUPER_ADMIN
+      const testUser = await prisma.user.findFirst({
+        where: { phone: "6200065370" }
+      });
+      if (testUser && testUser.roleId !== superAdminRoleObj.id) {
+        await prisma.user.update({
+          where: { id: testUser.id },
+          data: { roleId: superAdminRoleObj.id }
+        });
+        console.log("[DB Sync] Successfully promoted test user 6200065370 to SUPER_ADMIN.");
       }
     }
 

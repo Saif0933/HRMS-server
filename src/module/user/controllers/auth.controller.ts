@@ -1,17 +1,17 @@
-import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
-import { prisma } from "../../../db/prisma.ts";
+import type { NextFunction, Request, Response } from "express";
 import env from "../../../config/env.config.ts";
-import { generateOTP, signToken } from "../../../utils/jwt.util.ts";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.ts";
+import { prisma } from "../../../db/prisma.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
+import { statusCode } from "../../../types/types.ts";
+import { generateOTP, signToken } from "../../../utils/jwt.util.ts";
+import { ErrorResponse, SuccessResponse } from "../../../utils/response.util.ts";
 import {
+  loginSchema,
+  registerSchema,
   sendOtpSchema,
   verifyOtpSchema,
-  registerSchema,
-  loginSchema,
 } from "../validators/auth.validator.ts";
-import { statusCode } from "../../../types/types.ts";
 
 /**
  * Hash password using Node.js native crypto module (SHA256)

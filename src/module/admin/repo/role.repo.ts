@@ -103,14 +103,22 @@ export class RoleRepository {
 
   // User Operations
   static async findUserById(id: string) {
-    return prisma.user.findUnique({
+    const userById = await prisma.user.findUnique({
       where: { id },
+    });
+    if (userById) return userById;
+
+    return prisma.user.findUnique({
+      where: { phone: id },
     });
   }
 
   static async updateUserRoleId(userId: string, roleId: string | null) {
+    const isPhone = /^\d+$/.test(userId);
+    const whereClause = isPhone ? { phone: userId } : { id: userId };
+
     return prisma.user.update({
-      where: { id: userId },
+      where: whereClause,
       data: {
         roleId,
       },
