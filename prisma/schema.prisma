@@ -1,0 +1,785 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// // ==========================================
+// // ENUMS FOR DATA INTEGRITY
+// // ==========================================
+
+// enum EmployeeStatus {
+//   ACTIVE
+//   ON_LEAVE
+//   TERMINATED
+//   RESIGNED
+//   PROBATION
+// }
+
+// enum ConfirmationStatus {
+//   PENDING
+//   CONFIRMED
+//   EXTENDED
+// }
+
+// enum LeaveStatus {
+//   APPROVED
+//   PENDING
+//   REJECTED
+// }
+
+// enum ClaimStatus {
+//   APPROVED
+//   PENDING
+//   REJECTED
+// }
+
+// enum ClaimType {
+//   TRAVEL
+//   MILEAGE
+//   FOOD
+//   ACCOMMODATION
+//   OTHER
+// }
+
+// enum Priority {
+//   CRITICAL
+//   HIGH
+//   MEDIUM
+//   LOW
+// }
+
+// enum JobStatus {
+//   OPEN
+//   CLOSED
+//   DRAFT
+// }
+
+// enum CandidateStage {
+//   APPLIED
+//   SCREENING
+//   INTERVIEW
+//   OFFER
+//   ONBOARDING
+// }
+
+// enum AssetType {
+//   LAPTOP
+//   DESKTOP
+//   MONITOR
+//   PHONE
+//   SIM
+//   IDCARD
+//   VEHICLE
+// }
+
+// enum AssetStatus {
+//   IN_USE
+//   AVAILABLE
+//   UNDER_REPAIR
+//   MAINTENANCE
+// }
+
+// enum TicketCategory {
+//   ITSUPPORT
+//   HRQUERY
+//   FACILITIES
+//   PAYROLL
+// }
+
+// enum TicketStatus {
+//   OPEN
+//   IN_PROGRESS
+//   RESOLVED
+//   CLOSED
+// }
+
+// enum LetterTemplate {
+//   OFFER
+//   WARNING
+//   EXPERIENCE
+// }
+
+// enum NotificationType {
+//   LEAVE
+//   CLAIM
+//   SYSTEM
+//   PAYROLL
+//   PERFORMANCE
+// }
+
+// enum DocumentCategory {
+//   IDENTITY
+//   CONTRACT
+//   ACADEMIC
+//   TAX
+// }
+
+// enum RosterShiftType {
+//   GENERAL
+//   WEEK_OFF
+//   NIGHT_SHIFT
+//   MORNING_SHIFT
+//   EVENING_SHIFT
+// }
+
+// // ==========================================
+// // CORE ENTITIES
+// // ==========================================
+
+// model Employee {
+//   id          String         @id // e.g. "EMP001"
+//   name        String
+//   role        UserRole       @default(SUPER_ADMIN)
+//   department  String
+//   email       String         @unique
+//   phone       String
+//   avatar      String
+//   status      EmployeeStatus @default(PROBATION)
+//   joiningDate DateTime
+//   location    String
+
+//   // Manager Hierarchy (Self-relation)
+//   managerId    String?
+//   manager      Employee?  @relation("ManagerRelation", fields: [managerId], references: [id])
+//   subordinates Employee[] @relation("ManagerRelation")
+
+//   // Custom Roles & Permissions (Dynamic RBAC)
+//   customRoleId String?
+//   customRole   Role?   @relation("EmployeeCustomRole", fields: [customRoleId], references: [id], onDelete: SetNull)
+//   createdRoles Role[]  @relation("RoleCreator")
+
+//   // Salary Details
+//   basic       Float
+//   hra         Float
+//   allowance   Float
+//   deductions  Float
+//   netSalary   Float
+//   bankName    String
+//   bankAccount String
+//   ifsc        String
+//   pan         String
+//   aadhaar     String
+//   uan         String
+//   pfNumber    String
+
+//   // Personal Details
+//   gender        String
+//   dob           DateTime
+//   bloodGroup    String
+//   maritalStatus String
+//   qualification String
+//   university    String
+//   passingYear   String
+
+//   // Workflows & Exit
+//   probationDuration  String
+//   probationEnd       DateTime
+//   confirmationStatus ConfirmationStatus @default(PENDING)
+//   exitDate           DateTime?
+//   clearanceStatus    String? // 'Pending' | 'Approved'
+
+//   // Timestamps
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   // Normalized Relations
+//   workHistory        WorkHistory[]
+//   promotions         Promotion[]
+//   transfers          Transfer[]
+//   vaultDocs          VaultDoc[]
+//   leaveRequests      LeaveRequest[]
+//   claimRequests      ClaimRequest[]
+//   regularizationReqs RegularizationRequest[]
+//   punchLogs          PunchLog[]
+//   rosterShifts       RosterShift[]
+//   musterRollRecords  MusterRollRecord[]
+//   timesheets         Timesheet[]
+//   issuedLetters      IssuedLetter[]
+//   kraGoals           KraGoal[]
+//   feedbacksReceived  PerformanceFeedback[]   @relation("FeedbackRecipient")
+//   feedbacksGiven     PerformanceFeedback[]   @relation("FeedbackReviewer")
+//   payrollLoans       PayrollLoan[]
+//   taxDeclarations    InvestmentDeclaration[]
+//   payslips           Payslip[]
+//   auditLogs          AuditLog[]
+//   feedPosts          FeedPost[]
+//   assets             Asset[]
+//   comments           Comment[]
+//   reactions          Reaction[]
+//   helpTickets        HelpTicket[]
+//   notifications      Notification[]
+
+//   @@index([managerId])
+//   @@index([email])
+//   @@index([department])
+//   @@index([status])
+//   @@index([customRoleId])
+// }
+
+// model WorkHistory {
+//   id         String   @id @default(cuid())
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   company    String
+//   role       String
+//   duration   String
+//   ctc        String
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// model Promotion {
+//   id              String   @id @default(cuid())
+//   employeeId      String
+//   employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   date            DateTime
+//   oldRole         String
+//   newRole         String
+//   salaryIncrement String
+//   createdAt       DateTime @default(now())
+//   updatedAt       DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// model Transfer {
+//   id         String   @id @default(cuid())
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   date       DateTime
+//   oldDept    String
+//   newDept    String
+//   location   String
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 2. Secure Document Vault
+// model VaultDoc {
+//   id         String           @id @default(cuid())
+//   employeeId String
+//   employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   name       String
+//   category   DocumentCategory
+//   uploadedOn DateTime         @default(now())
+//   expiresOn  DateTime?
+//   status     String // 'Active' | 'Expiring Soon' | 'Expired'
+//   createdAt  DateTime         @default(now())
+//   updatedAt  DateTime         @updatedAt
+
+//   @@index([employeeId])
+//   @@index([category])
+// }
+
+// // 3. Leave Requests
+// model LeaveRequest {
+//   id         String      @id @default(cuid())
+//   employeeId String
+//   employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   type       String
+//   startDate  DateTime
+//   endDate    DateTime
+//   days       Int
+//   reason     String
+//   status     LeaveStatus @default(PENDING)
+//   appliedOn  DateTime    @default(now())
+//   createdAt  DateTime    @default(now())
+//   updatedAt  DateTime    @updatedAt
+
+//   @@index([employeeId])
+//   @@index([status])
+// }
+
+// // 4. Travel Expense Claims
+// model ClaimRequest {
+//   id         String      @id @default(cuid())
+//   employeeId String
+//   employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   type       ClaimType
+//   amount     Float
+//   date       DateTime
+//   reason     String
+//   status     ClaimStatus @default(PENDING)
+//   receiptUrl String?
+//   createdAt  DateTime    @default(now())
+//   updatedAt  DateTime    @updatedAt
+
+//   @@index([employeeId])
+//   @@index([status])
+// }
+
+// // 5. Job Requisitions
+// model JobRequisition {
+//   id         String      @id @default(cuid())
+//   title      String
+//   department String
+//   openings   Int
+//   priority   Priority    @default(MEDIUM)
+//   status     JobStatus   @default(DRAFT)
+//   postedDate DateTime    @default(now())
+//   createdAt  DateTime    @default(now())
+//   updatedAt  DateTime    @updatedAt
+//   candidates Candidate[]
+
+//   @@index([status])
+//   @@index([department])
+// }
+
+// // 6. Recruitment Candidates
+// model Candidate {
+//   id               String          @id @default(cuid())
+//   name             String
+//   jobRequisitionId String?
+//   jobRequisition   JobRequisition? @relation(fields: [jobRequisitionId], references: [id], onDelete: SetNull)
+//   jobTitle         String
+//   email            String
+//   stage            CandidateStage  @default(APPLIED)
+//   experience       String
+//   rating           Float
+//   resumeUrl        String
+//   createdAt        DateTime        @default(now())
+//   updatedAt        DateTime        @updatedAt
+
+//   @@index([jobRequisitionId])
+//   @@index([stage])
+// }
+
+// // 7. Inventory Assets
+// model Asset {
+//   id           String      @id // e.g. "AST-001"
+//   name         String
+//   category     String // 'Hardware' | 'Mobile' | 'Keycard' | 'Other'
+//   type         AssetType?
+//   serialNumber String      @unique
+//   assignedToId String?
+//   assignedTo   Employee?   @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+//   assignedDate DateTime?
+//   status       AssetStatus @default(AVAILABLE)
+//   createdAt    DateTime    @default(now())
+//   updatedAt    DateTime    @updatedAt
+
+//   @@index([assignedToId])
+//   @@index([status])
+// }
+
+// // 8. Help Desk Tickets
+// model HelpTicket {
+//   id           String         @id @default(cuid())
+//   employeeId   String?
+//   employee     Employee?      @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+//   employeeName String
+//   category     TicketCategory
+//   subject      String
+//   priority     Priority       @default(MEDIUM)
+//   status       TicketStatus   @default(OPEN)
+//   createdDate  DateTime       @default(now())
+//   description  String
+//   createdAt    DateTime       @default(now())
+//   updatedAt    DateTime       @updatedAt
+
+//   @@index([employeeId])
+//   @@index([status])
+// }
+
+// // 9. Employee Engagement Social Feed
+// model FeedPost {
+//   id           String     @id @default(cuid())
+//   authorId     String?
+//   author       Employee?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
+//   authorName   String
+//   authorRole   String
+//   authorAvatar String
+//   content      String
+//   likes        Int        @default(0)
+//   date         DateTime   @default(now())
+//   image        String?
+//   createdAt    DateTime   @default(now())
+//   updatedAt    DateTime   @updatedAt
+//   comments     Comment[]
+//   reactions    Reaction[]
+
+//   @@index([authorId])
+// }
+
+// model Comment {
+//   id         String   @id @default(cuid())
+//   postId     String
+//   post       FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   user       String
+//   text       String
+//   date       DateTime @default(now())
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+
+//   @@index([postId])
+//   @@index([employeeId])
+// }
+
+// model Reaction {
+//   id         String   @id @default(cuid())
+//   postId     String
+//   post       FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   type       String // e.g. "👍", "❤️"
+//   createdAt  DateTime @default(now())
+
+//   @@index([postId])
+//   @@index([employeeId])
+// }
+
+// // 10. Corporate Holidays
+// model Holiday {
+//   id        String   @id @default(cuid())
+//   name      String
+//   date      DateTime
+//   day       String
+//   type      String
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
+
+// // 11. Attendance Regularization Requests
+// model RegularizationRequest {
+//   id         String      @id @default(cuid())
+//   employeeId String
+//   employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   date       DateTime
+//   timeIn     String
+//   timeOut    String
+//   reason     String
+//   status     LeaveStatus @default(PENDING)
+//   createdAt  DateTime    @default(now())
+//   updatedAt  DateTime    @updatedAt
+
+//   @@index([employeeId])
+//   @@index([status])
+// }
+
+// // 12. Geofenced Punch Logs
+// model PunchLog {
+//   id         String   @id @default(cuid())
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   time       DateTime @default(now())
+//   type       String // 'In' | 'Out'
+//   method     String // 'GPS + Selfie' | 'GPS Mobile' | 'Biometric Portal'
+//   latitude   Float?
+//   longitude  Float?
+//   distance   Float?
+//   selfieUrl  String?
+//   createdAt  DateTime @default(now())
+
+//   @@index([employeeId])
+// }
+
+// // 13. Weekly Shift Roster
+// model RosterShift {
+//   id         String          @id @default(cuid())
+//   employeeId String
+//   employee   Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   rosterWeek String
+//   Mon        RosterShiftType @default(GENERAL)
+//   Tue        RosterShiftType @default(GENERAL)
+//   Wed        RosterShiftType @default(GENERAL)
+//   Thu        RosterShiftType @default(GENERAL)
+//   Fri        RosterShiftType @default(GENERAL)
+//   Sat        RosterShiftType @default(WEEK_OFF)
+//   Sun        RosterShiftType @default(WEEK_OFF)
+//   createdAt  DateTime        @default(now())
+//   updatedAt  DateTime        @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 14. Monthly Muster Roll Record
+// model MusterRollRecord {
+//   id         String   @id @default(cuid())
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   date       DateTime
+//   status     String // 'Present' | 'Late' | 'Absent' | 'Holiday' | 'WeekOff'
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 15. Weekly Billing Timesheet
+// model Timesheet {
+//   id         String      @id @default(cuid())
+//   employeeId String
+//   employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   project    String
+//   task       String?
+//   monHours   Float       @default(8)
+//   tueHours   Float       @default(8)
+//   wedHours   Float       @default(8)
+//   thuHours   Float       @default(8)
+//   friHours   Float       @default(8)
+//   hours      Float
+//   week       String
+//   status     LeaveStatus @default(PENDING)
+//   createdAt  DateTime    @default(now())
+//   updatedAt  DateTime    @updatedAt
+
+//   @@index([employeeId])
+//   @@index([status])
+// }
+
+// // 16. Issued Corporate Letters
+// model IssuedLetter {
+//   id            String         @id @default(cuid())
+//   employeeId    String?
+//   employee      Employee?      @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+//   recipientName String
+//   recipientRole String
+//   templateType  LetterTemplate
+//   salaryCtc     String?
+//   joiningDate   DateTime?
+//   warningReason String?
+//   issuedAt      DateTime       @default(now())
+//   issuedById    String?
+//   createdAt     DateTime       @default(now())
+//   updatedAt     DateTime       @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 17. KRA Goals
+// model KraGoal {
+//   id         String   @id @default(cuid())
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   title      String
+//   weight     String
+//   kra        String
+//   progress   Float    @default(0)
+//   status     String   @default("In Progress")
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 18. 360 Appraisal Feedbacks
+// model PerformanceFeedback {
+//   id           String    @id @default(cuid())
+//   employeeId   String
+//   employee     Employee  @relation("FeedbackRecipient", fields: [employeeId], references: [id], onDelete: Cascade)
+//   reviewerId   String?
+//   reviewer     Employee? @relation("FeedbackReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+//   reviewerName String
+//   relation     String // 'Manager' | 'Peer'
+//   rating       Float
+//   text         String
+//   date         DateTime
+//   createdAt    DateTime  @default(now())
+//   updatedAt    DateTime  @updatedAt
+
+//   @@index([employeeId])
+//   @@index([reviewerId])
+// }
+
+// // 19. Payroll Advances & Loans
+// model PayrollLoan {
+//   id           String   @id @default(cuid())
+//   employeeId   String
+//   employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   principal    Float
+//   balance      Float
+//   emi          Float
+//   approvedDate DateTime
+//   status       String   @default("Active")
+//   createdAt    DateTime @default(now())
+//   updatedAt    DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 20. Tax Investment Declarations
+// model InvestmentDeclaration {
+//   id            String   @id @default(cuid())
+//   employeeId    String
+//   employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   sec80C        Float
+//   sec80D        Float
+//   declaredHra   Float
+//   financialYear String   @default("2026-2027")
+//   createdAt     DateTime @default(now())
+//   updatedAt     DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 21. Computed Payslips
+// model Payslip {
+//   id         String   @id @default(cuid())
+//   employeeId String
+//   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   month      String
+//   year       Int
+//   basic      Float
+//   hra        Float
+//   allowance  Float
+//   deductions Float
+//   netSalary  Float
+//   status     String
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+
+//   @@index([employeeId])
+// }
+
+// // 22. Audit Logs
+// model AuditLog {
+//   id         String    @id @default(cuid())
+//   employeeId String?
+//   employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+//   user       String
+//   action     String
+//   module     String
+//   timestamp  DateTime  @default(now())
+//   details    String
+//   createdAt  DateTime  @default(now())
+
+//   @@index([employeeId])
+// }
+
+// // 23. Notifications
+// model Notification {
+//   id         String           @id @default(cuid())
+//   employeeId String?
+//   employee   Employee?        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+//   title      String
+//   message    String
+//   time       DateTime         @default(now())
+//   read       Boolean          @default(false)
+//   type       NotificationType
+//   createdAt  DateTime         @default(now())
+//   updatedAt  DateTime         @updatedAt
+
+//   @@index([employeeId])
+//   @@index([read])
+// }
+
+// // 24. Login OTP (Phone & OTP Auth)
+// model LoginOtp {
+//   id           String   @id @default(cuid())
+//   phone        String   @unique
+//   otp          String
+//   expiresAt    DateTime
+//   attempts     Int      @default(0)
+//   verified     Boolean  @default(false)
+//   role         UserRole @default(SUPER_ADMIN)
+//   customRoleId String?
+//   customRole   Role?    @relation("LoginOtpCustomRole", fields: [customRoleId], references: [id], onDelete: SetNull)
+//   createdAt    DateTime @default(now())
+//   updatedAt    DateTime @updatedAt
+
+//   @@index([phone])
+//   @@index([customRoleId])
+// }
+
+// enum UserRole {
+//   SUPER_ADMIN
+//   HR_ADMIN
+//   MANAGER
+//   EMPLOYEE
+// }
+
+// // ==========================================
+// // ADMIN & OTP LOGINS
+// // ==========================================
+
+// model Otp {
+//   id              BigInt    @id @default(autoincrement())
+//   mobile          String    @unique
+//   otp             String
+//   expiresAt       DateTime
+//   attempts        Int       @default(0)
+//   lastAttemptedAt DateTime?
+//   isUsed          Boolean   @default(false)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@index([mobile])
+//   @@map("otp")
+// }
+
+// model Admin {
+//   id           String    @id @default(cuid())
+//   email        String    @unique
+//   password     String
+//   name         String?
+//   role         AdminRole @default(SUPER_ADMIN)
+//   customRoleId String?
+//   customRole   Role?     @relation("AdminCustomRole", fields: [customRoleId], references: [id], onDelete: SetNull)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@index([customRoleId])
+// }
+
+// enum AdminRole {
+//   SUPER_ADMIN
+//   HR_ADMIN
+//   MANAGER
+//   EMPLOYEE
+// }
+
+// // ==========================================
+// // DYNAMIC ROLES & PERMISSIONS
+// // ==========================================
+
+// model Role {
+//   id          String  @id @default(cuid())
+//   name        String  @unique // e.g. "HR Admin", "Payroll Manager"
+//   description String?
+//   isSystem    Boolean @default(false)
+
+//   // Many-to-many relationship with Permission
+//   permissions Permission[]
+
+//   // Creator of this role
+//   createdById String?
+//   createdBy   Employee? @relation("RoleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+//   // Users assigned to this role
+//   employees Employee[] @relation("EmployeeCustomRole")
+//   loginOtps LoginOtp[] @relation("LoginOtpCustomRole")
+//   admins    Admin[]    @relation("AdminCustomRole")
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@index([createdById])
+// }
+
+// model Permission {
+//   id          String  @id @default(cuid())
+//   name        String  @unique // e.g. "employees:create", "leaves:approve"
+//   description String?
+//   module      String? // e.g. "Employee Management", "Leave Management"
+
+//   // Roles that have this permission
+//   roles Role[]
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
