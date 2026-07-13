@@ -136,6 +136,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
   // Check if user exists with this phone number
   let user = await prisma.user.findUnique({
     where: { phone },
+    include: { role: true },
   });
 
   let isNewUser = false;
@@ -160,6 +161,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
         email: null as any,
         roleId,
       },
+      include: { role: true },
     });
     isNewUser = true;
   }
@@ -182,6 +184,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
         name: user.name,
         email: user.email,
         phone: user.phone,
+        role: user.role?.name || "EMPLOYEE",
       },
       token,
       isRegistered: true,
@@ -236,6 +239,7 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
       password: hashPassword(password),
       roleId,
     },
+    include: { role: true },
   });
 
   // Sign JWT token
@@ -256,6 +260,7 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
         name: newUser.name,
         email: newUser.email,
         phone: newUser.phone,
+        role: newUser.role?.name || "EMPLOYEE",
       },
       token,
     },
@@ -284,6 +289,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
         phone ? { phone } : {},
       ],
     },
+    include: { role: true },
   });
 
   if (!user || !user.password) {
@@ -313,6 +319,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
         name: user.name,
         email: user.email,
         phone: user.phone,
+        role: user.role?.name || "EMPLOYEE",
       },
       token,
     },
