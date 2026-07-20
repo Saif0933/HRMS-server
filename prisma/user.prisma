@@ -1,16 +1,17 @@
 model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String?  @unique
-  phone     String?  @unique
-  password  String?
-  roleId    String?
-  role      Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Department Relations
-  managedDepartments Department[] @relation("DepartmentManager")
+  id                 String         @id @default(cuid())
+  name               String?
+  email              String?        @unique
+  phone              String?        @unique
+  password           String?
+  roleId             String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  managedDepartments Department[]   @relation("DepartmentManager")
+  employee           Employee?
+  approvedLeaves     LeaveRequest[] @relation("LeaveApprover")
+  membership         Membership?
+  role               Role?          @relation(fields: [roleId], references: [id])
 
   @@map("users")
 }

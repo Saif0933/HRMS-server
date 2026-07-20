@@ -1,0 +1,93 @@
+model Employee {
+  id                 String             @id
+  name               String
+  email              String             @unique
+  phone              String?
+  avatar             String?
+  status             EmployeeStatus     @default(PROBATION)
+  joiningDate        DateTime
+  location           String?
+  designation        String?
+  userId             String?            @unique
+  departmentId       String?
+  managerId          String?
+  basic              Float?
+  hra                Float?
+  allowance          Float?
+  deductions         Float?
+  netSalary          Float?
+  bankName           String?
+  bankAccount        String?
+  ifsc               String?
+  pan                String?
+  aadhaar            String?
+  uan                String?
+  pfNumber           String?
+  gender             String?
+  dob                DateTime?
+  bloodGroup         String?
+  maritalStatus      String?
+  qualification      String?
+  university         String?
+  passingYear        String?
+  probationDuration  String?
+  probationEnd       DateTime?
+  confirmationStatus ConfirmationStatus @default(PENDING)
+  exitDate           DateTime?
+  clearanceStatus    String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  department         Department?        @relation(fields: [departmentId], references: [id])
+  manager            Employee?          @relation("ManagerRelation", fields: [managerId], references: [id])
+  subordinates       Employee[]         @relation("ManagerRelation")
+  user               User?              @relation(fields: [userId], references: [id])
+  leaveAllocations   LeaveAllocation[]
+  leaveRequests      LeaveRequest[]     @relation("EmployeeLeaveRequests")
+  payrollRuns        PayrollRun[]
+  payrollExclusions  PayrollExclusion[]
+  loans              Loan[]
+  taxDeclarations    TaxDeclaration[]
+  performanceGoals       PerformanceGoal[]
+  performanceFeedbacks   PerformanceFeedback[]
+  performanceAppraisals  PerformanceAppraisal[]
+  engagementPostLikes     EngagementPostLike[]
+  engagementPostReactions EngagementPostReaction[]
+  engagementMoods         EngagementMood[]
+  surveyResponses         CorporateSurveyResponse[]
+  travelClaims            TravelClaim[]
+  timesheets              Timesheet[]
+  vaultDocuments          VaultDocument[]
+  assets                  Asset[]
+  helpTickets             HelpTicket[]
+  attendancePunches       AttendancePunch[]
+  attendanceRegularizations AttendanceRegularization[]
+
+
+
+
+
+
+
+
+
+
+  @@index([managerId])
+  @@index([email])
+  @@index([departmentId])
+  @@index([status])
+  @@map("employees")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
+  RESIGNED
+  PROBATION
+}
+
+enum ConfirmationStatus {
+  PENDING
+  CONFIRMED
+  EXTENDED
+}

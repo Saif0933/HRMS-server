@@ -1,0 +1,19 @@
+model Timesheet {
+  id         String   @id @default(cuid())
+  employeeId String
+  project    String
+  task       String
+  monHours   Float
+  tueHours   Float
+  wedHours   Float
+  thuHours   Float
+  friHours   Float
+  totalHours Float
+  week       String
+  status     String   @default("Pending") // Pending, Approved, Rejected
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("timesheets")
+}

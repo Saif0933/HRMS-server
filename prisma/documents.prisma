@@ -1,0 +1,14 @@
+model VaultDocument {
+  id         String   @id @default(cuid())
+  employeeId String
+  name       String
+  category   String // Identity, Contract, Academic, Tax
+  uploadedOn String
+  expiresOn  String?
+  status     String   @default("Active") // Active, Expiring Soon, Expired
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("vault_documents")
+}

@@ -1,0 +1,15 @@
+model TravelClaim {
+  id          String   @id @default(cuid())
+  employeeId  String
+  type        String // Travel, Mileage, Food, Accommodation, Other
+  amount      Float
+  date        String
+  reason      String
+  status      String   @default("Pending") // Pending, Approved, Rejected
+  receiptUrl  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("travel_claims")
+}

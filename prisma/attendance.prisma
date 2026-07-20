@@ -1,0 +1,44 @@
+model AttendancePunch {
+  id             String   @id @default(cuid())
+  employeeId     String
+  time           String
+  type           String // In, Out
+  method         String // GPS + Selfie, GPS + Password, etc.
+  lat            Float
+  lng            Float
+  selfiePreview  String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("attendance_punches")
+}
+
+model AttendanceRegularization {
+  id         String   @id @default(cuid())
+  employeeId String
+  date       String
+  timeIn     String
+  timeOut    String
+  reason     String
+  status     String   @default("Pending") // Pending, Approved, Rejected
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("attendance_regularizations")
+}
+
+model GeofenceLocation {
+  id        String   @id @default(cuid())
+  name      String
+  lat       Float
+  lng       Float
+  radius    Float // in meters
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("geofence_locations")
+}
+

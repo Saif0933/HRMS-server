@@ -1,0 +1,42 @@
+model PerformanceGoal {
+  id         String   @id @default(cuid())
+  employeeId String
+  title      String
+  weight     String
+  kra        String
+  progress   Int      @default(0)
+  status     String   @default("In Progress") // In Progress, Completed
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("performance_goals")
+}
+
+model PerformanceFeedback {
+  id         String   @id @default(cuid())
+  employeeId String
+  reviewer   String
+  relation   String // Manager, Peer, Direct Report
+  rating     Float
+  text       String
+  date       DateTime @default(now())
+  createdAt  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("performance_feedbacks")
+}
+
+model PerformanceAppraisal {
+  id         String   @id @default(cuid())
+  employeeId String
+  rating     Int // 1 to 5
+  cycle      String // e.g. "2026-Q2", "2026-Annual"
+  status     String   @default("PENDING") // PENDING, COMPLETED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, cycle])
+  @@map("performance_appraisals")
+}

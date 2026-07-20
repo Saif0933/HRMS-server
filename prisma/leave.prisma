@@ -1,0 +1,71 @@
+model LeaveType {
+  id              String            @id @default(cuid())
+  name            String            @unique
+  code            String            @unique
+  description     String?
+  defaultDays     Float
+  carryForward    Boolean           @default(false)
+  maxCarryForward Float?            @default(0)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  allocations     LeaveAllocation[]
+  requests        LeaveRequest[]
+
+  @@map("leave_types")
+}
+
+model LeaveAllocation {
+  id             String    @id @default(cuid())
+  employeeId     String
+  leaveTypeId    String
+  year           Int
+  allocated      Float
+  used           Float     @default(0)
+  pending        Float     @default(0)
+  carriedForward Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType      LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_allocations")
+}
+
+model LeaveRequest {
+  id              String          @id @default(cuid())
+  employeeId      String
+  leaveTypeId     String
+  startDate       DateTime
+  endDate         DateTime
+  halfDay         Boolean         @default(false)
+  halfDaySession  HalfDaySession?
+  totalDays       Float
+  reason          String
+  status          LeaveStatus     @default(PENDING)
+  attachmentUrl   String?
+  appliedDate     DateTime        @default(now())
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  approvedBy      User?           @relation("LeaveApprover", fields: [approvedById], references: [id])
+  employee        Employee        @relation("EmployeeLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType       LeaveType       @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@map("leave_requests")
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum HalfDaySession {
+  FIRST_HALF
+  SECOND_HALF
+}

@@ -1,21 +1,16 @@
 model Department {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  code        String   @unique // e.g. "HR", "ENG", "MKT"
+  id          String       @id @default(cuid())
+  name        String       @unique
+  code        String       @unique
   description String?
-  
-  // Relations
-  // 1. Manager/Head of Department (referencing User)
   managerId   String?
-  manager     User?    @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
-  
-  // 2. Parent/Sub-departments for hierarchical structures
   parentId    String?
-  parent      Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  manager     User?        @relation("DepartmentManager", fields: [managerId], references: [id])
+  parent      Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
   children    Department[] @relation("DepartmentHierarchy")
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  employees   Employee[]
 
   @@map("departments")
 }

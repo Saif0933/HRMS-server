@@ -108,17 +108,41 @@ export class RoleRepository {
     });
     if (userById) return userById;
 
-    return prisma.user.findUnique({
+    const userByEmail = await prisma.user.findUnique({
+      where: { email: id },
+    });
+    if (userByEmail) return userByEmail;
+
+    const userByPhone = await prisma.user.findUnique({
       where: { phone: id },
     });
+    if (userByPhone) return userByPhone;
+
+    const cleanInput = id.replace(/\D/g, "");
+    if (cleanInput.length >= 10) {
+      const allUsers = await prisma.user.findMany({
+        where: {
+          phone: { not: null }
+        }
+      });
+      const matchingUser = allUsers.find(u => {
+        const cleanPhone = u.phone?.replace(/\D/g, "");
+        return cleanPhone === cleanInput || (cleanPhone && cleanPhone.endsWith(cleanInput)) || (cleanInput.endsWith(cleanPhone || ""));
+      });
+      if (matchingUser) return matchingUser;
+    }
+
+    return null;
   }
 
   static async updateUserRoleId(userId: string, roleId: string | null) {
-    const isPhone = /^\d+$/.test(userId);
-    const whereClause = isPhone ? { phone: userId } : { id: userId };
+    const user = await this.findUserById(userId);
+    if (!user) {
+      throw new Error(`User with identifier '${userId}' not found.`);
+    }
 
     return prisma.user.update({
-      where: whereClause,
+      where: { id: user.id },
       data: {
         roleId,
       },

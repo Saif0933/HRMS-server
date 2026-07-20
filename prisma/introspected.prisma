@@ -1,0 +1,8 @@
+model role_permissions {
+  roleId       String
+  permissionId String
+  permissions  Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  roles        Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}

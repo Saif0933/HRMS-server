@@ -1,0 +1,174 @@
+import type { Request, Response, NextFunction } from "express";
+import { EmployeeService } from "../services/employee.service.ts";
+import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.ts";
+import { asyncHandler } from "../../../middlewares/error.middleware.ts";
+import { statusCode } from "../../../types/types.ts";
+import {
+  createEmployeeSchema,
+  updateEmployeeSchema,
+  updateSalarySchema,
+  updatePersonalSchema,
+} from "../validators/employee.validator.ts";
+
+export const createEmployee = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = createEmployeeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const employee = await EmployeeService.createEmployee(parsed.data);
+
+  return SuccessResponse(
+    res,
+    "Employee record created successfully",
+    employee,
+    statusCode.Created
+  );
+});
+
+export const getEmployees = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const { departmentId, managerId, status, search } = req.query;
+
+  const employees = await EmployeeService.getEmployees({
+    departmentId: departmentId as string,
+    managerId: managerId as string,
+    status: status as any,
+    search: search as string,
+  });
+
+  return SuccessResponse(
+    res,
+    "Employees retrieved successfully",
+    employees,
+    statusCode.OK
+  );
+});
+
+export const getEmployeeById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  const employee = await EmployeeService.getEmployeeById(id);
+
+  return SuccessResponse(
+    res,
+    "Employee retrieved successfully",
+    employee,
+    statusCode.OK
+  );
+});
+
+export const updateEmployee = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  const parsed = updateEmployeeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const updatedEmployee = await EmployeeService.updateEmployee(id, parsed.data);
+
+  return SuccessResponse(
+    res,
+    "Employee updated successfully",
+    updatedEmployee,
+    statusCode.OK
+  );
+});
+
+export const deleteEmployee = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  await EmployeeService.deleteEmployee(id);
+
+  return SuccessResponse(
+    res,
+    "Employee deleted successfully",
+    {},
+    statusCode.OK
+  );
+});
+
+// Helper to check if the requesting user has access to this employee profile
+const checkEmployeeAccess = async (req: any, employeeId: string) => {
+  const employee = await EmployeeService.getEmployeeById(employeeId);
+  const isSelf = req.user.id === employee.userId;
+  const isAdmin = req.user.role && ["SUPER_ADMIN", "HR_ADMIN"].includes(req.user.role.name);
+  if (!isSelf && !isAdmin) {
+    throw new ErrorResponse("You do not have permission to access this resource", statusCode.Forbidden);
+  }
+  return employee;
+};
+
+export const getEmployeeSalary = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  
+  // Ensure access
+  await checkEmployeeAccess(req, id);
+
+  const salaryDetails = await EmployeeService.getEmployeeSalary(id);
+
+  return SuccessResponse(
+    res,
+    "Employee salary details retrieved successfully",
+    salaryDetails,
+    statusCode.OK
+  );
+});
+
+export const updateEmployeeSalary = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+
+  // Only SUPER_ADMIN and HR_ADMIN are allowed to update salary details
+  const isAdmin = req.user.role && ["SUPER_ADMIN", "HR_ADMIN"].includes(req.user.role.name);
+  if (!isAdmin) {
+    return next(new ErrorResponse("You do not have permission to perform this action", statusCode.Forbidden));
+  }
+
+  const parsed = updateSalarySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const updatedEmployee = await EmployeeService.updateEmployeeSalary(id, parsed.data);
+
+  return SuccessResponse(
+    res,
+    "Employee salary details updated successfully",
+    updatedEmployee,
+    statusCode.OK
+  );
+});
+
+export const getEmployeePersonal = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+
+  // Ensure access
+  await checkEmployeeAccess(req, id);
+
+  const personalDetails = await EmployeeService.getEmployeePersonal(id);
+
+  return SuccessResponse(
+    res,
+    "Employee personal details retrieved successfully",
+    personalDetails,
+    statusCode.OK
+  );
+});
+
+export const updateEmployeePersonal = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+
+  // Ensure access (employee can update their own personal details or admin can)
+  await checkEmployeeAccess(req, id);
+
+  const parsed = updatePersonalSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const updatedEmployee = await EmployeeService.updateEmployeePersonal(id, parsed.data);
+
+  return SuccessResponse(
+    res,
+    "Employee personal details updated successfully",
+    updatedEmployee,
+    statusCode.OK
+  );
+});

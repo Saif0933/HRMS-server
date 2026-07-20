@@ -1,0 +1,13 @@
+model IssuedLetter {
+  id            String   @id @default(cuid())
+  templateType  String // offer, warning, experience
+  recipientName String
+  recipientRole String
+  joiningDate   String?
+  salaryCtc     String?
+  warningReason String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("issued_letters")
+}

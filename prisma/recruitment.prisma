@@ -1,0 +1,27 @@
+model JobRequisition {
+  id              String   @id @default(cuid())
+  title           String
+  department      String
+  status          String   @default("Open") // Open, Filled, Closed
+  applicantsCount Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("job_requisitions")
+}
+
+model Candidate {
+  id               String   @id @default(cuid())
+  name             String
+  role             String
+  experience       String
+  email            String
+  stage            String   @default("Applied") // Applied, Interview, Offer, Onboarding
+  bgvChecked       Boolean  @default(false)
+  contractSigned   Boolean  @default(false)
+  hardwareAssigned Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("candidates")
+}

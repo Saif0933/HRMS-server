@@ -20,11 +20,13 @@ export class DepartmentService {
       throw new ErrorResponse("Department with this code already exists", statusCode.Conflict);
     }
 
+    let resolvedManagerId: string | null = null;
     if (data.managerId) {
       const manager = await DepartmentRepository.findUserById(data.managerId);
       if (!manager) {
         throw new ErrorResponse("Manager user not found", statusCode.Not_Found);
       }
+      resolvedManagerId = manager.id;
     }
 
     if (data.parentId) {
@@ -34,7 +36,10 @@ export class DepartmentService {
       }
     }
 
-    return DepartmentRepository.create(data);
+    return DepartmentRepository.create({
+      ...data,
+      managerId: resolvedManagerId
+    });
   }
 
   static async getDepartments() {
@@ -78,11 +83,13 @@ export class DepartmentService {
       }
     }
 
+    let resolvedManagerId: string | null | undefined = data.managerId;
     if (data.managerId) {
       const manager = await DepartmentRepository.findUserById(data.managerId);
       if (!manager) {
         throw new ErrorResponse("Manager user not found", statusCode.Not_Found);
       }
+      resolvedManagerId = manager.id;
     }
 
     if (data.parentId) {
@@ -95,7 +102,10 @@ export class DepartmentService {
       }
     }
 
-    return DepartmentRepository.update(id, data);
+    return DepartmentRepository.update(id, {
+      ...data,
+      managerId: resolvedManagerId
+    });
   }
 
   static async deleteDepartment(id: string) {

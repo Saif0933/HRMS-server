@@ -1,6 +1,7 @@
 import { RoleRepository } from "../repo/role.repo.ts";
 import { ErrorResponse } from "../../../utils/response.util.ts";
 import { statusCode } from "../../../types/types.ts";
+import { prisma } from "../../../db/prisma.ts";
 
 export class RoleService {
   // Permission Services
@@ -80,11 +81,44 @@ export class RoleService {
 
   // User Assignment
   static async assignRoleToUser(userId: string, roleId: string | null) {
-    const user = await RoleRepository.findUserById(userId);
+    let user = await RoleRepository.findUserById(userId);
+
+    // If User is not found, check if there is an Employee matching this identifier (id, email, or phone)
     if (!user) {
-      throw new ErrorResponse("User not found", statusCode.Not_Found);
+      const employee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { id: userId },
+            { email: userId },
+            { phone: userId }
+          ]
+        }
+      });
+
+      if (employee) {
+        // Automatically create a User account for the Employee on-the-fly
+        user = await prisma.user.create({
+          data: {
+            name: employee.name,
+            email: employee.email,
+            phone: employee.phone,
+            roleId: roleId
+          }
+        });
+
+        // Link the Employee to the new User account
+        await prisma.employee.update({
+          where: { id: employee.id },
+          data: { userId: user.id }
+        });
+
+        return user;
+      }
+
+      throw new ErrorResponse("User not found and no matching employee record could be resolved to auto-create user account.", statusCode.Not_Found);
     }
 
+    // If User exists, validate the Role if one is specified
     if (roleId) {
       const role = await RoleRepository.findRoleById(roleId, false);
       if (!role) {
@@ -92,6 +126,22 @@ export class RoleService {
       }
     }
 
-    return RoleRepository.updateUserRoleId(userId, roleId);
+    // Ensure the Employee record is correctly linked to this User if they match by email or phone
+    const matchingEmployee = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { email: user.email || undefined },
+          { phone: user.phone || undefined }
+        ]
+      }
+    });
+    if (matchingEmployee && matchingEmployee.userId !== user.id) {
+      await prisma.employee.update({
+        where: { id: matchingEmployee.id },
+        data: { userId: user.id }
+      });
+    }
+
+    return RoleRepository.updateUserRoleId(user.id, roleId);
   }
 }

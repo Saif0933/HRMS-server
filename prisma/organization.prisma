@@ -1,0 +1,92 @@
+model Organization {
+  id                 String               @id @default(cuid())
+  name               String               @unique
+  description        String?
+  logoUrl            String?
+  website            String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  businessCategory   String?
+  cin                String?
+  code               String?              @unique
+  email              String?
+  foundedDate        DateTime?
+  gst                String?
+  iec                String?
+  industry           String?
+  landlineNumber     String?
+  legalName          String?
+  mobileNumber       String?
+  msme               String?
+  pan                String?
+  registrationNumber String?
+  status             OrganizationStatus   @default(ACTIVE)
+  tan                String?
+  type               CompanyType?
+  memberships        Membership[]
+  address            OrganizationAddress?
+
+  @@map("organizations")
+}
+
+model OrganizationAddress {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  country        String?
+  state          String?
+  city           String?
+  district       String?
+  area           String?
+  street         String?
+  buildingName   String?
+  floor          String?
+  landmark       String?
+  pincode        String?
+  latitude       Float?
+  longitude      Float?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_addresses")
+}
+
+model Membership {
+  id             String           @id @default(cuid())
+  userId         String           @unique
+  organizationId String
+  status         MembershipStatus @default(PENDING)
+  joinedAt       DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  roleId         String?
+  organizations  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role?            @relation(fields: [roleId], references: [id])
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+
+  @@map("MembershipStatus")
+}
+
+enum CompanyType {
+  PRIVATE
+  PUBLIC
+  LLP
+  PARTNERSHIP
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+}

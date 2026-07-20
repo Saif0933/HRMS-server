@@ -89,9 +89,51 @@ export class DepartmentRepository {
   }
 
   static async findUserById(id: string) {
-    return prisma.user.findUnique({
+    // 1. Direct match by User ID
+    let user = await prisma.user.findUnique({
       where: { id },
     });
+    if (user) return user;
+
+    // 2. Match by Employee ID (EMP-xxxxxx)
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+    if (employee) {
+      if (employee.user) return employee.user;
+
+      // Auto-create User account for Employee if not exists
+      const newUser = await prisma.user.create({
+        data: {
+          name: employee.name,
+          email: employee.email,
+          phone: employee.phone,
+        }
+      });
+
+      // Link Employee to the new User account
+      await prisma.employee.update({
+        where: { id: employee.id },
+        data: { userId: newUser.id }
+      });
+
+      return newUser;
+    }
+
+    // 3. Match by email
+    user = await prisma.user.findUnique({
+      where: { email: id },
+    });
+    if (user) return user;
+
+    // 4. Match by phone
+    user = await prisma.user.findUnique({
+      where: { phone: id },
+    });
+    if (user) return user;
+
+    return null;
   }
 }
 // 

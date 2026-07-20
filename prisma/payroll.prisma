@@ -1,0 +1,93 @@
+model PayrollCycle {
+  id          String             @id @default(cuid())
+  month       String
+  year        Int
+  status      String             @default("PENDING_ATTENDANCE_LOCK") // PENDING_ATTENDANCE_LOCK, PROCESSING_SALARIES, DISBURSED
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  runs        PayrollRun[]
+  exclusions  PayrollExclusion[]
+
+  @@unique([month, year])
+  @@map("payroll_cycles")
+}
+
+model PayrollRun {
+  id          String       @id @default(cuid())
+  employeeId  String
+  cycleId     String
+  basic       Float
+  hra         Float
+  allowance   Float
+  pf          Float
+  pt          Float        @default(200)
+  tds         Float        @default(0)
+  bonus       Float        @default(0)
+  arrear      Float        @default(0)
+  deductions  Float
+  netSalary   Float
+  status      String       @default("PENDING") // PENDING, PAID, HELD
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  employee    Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle       PayrollCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, cycleId])
+  @@map("payroll_runs")
+}
+
+model PayrollExclusion {
+  id         String       @id @default(cuid())
+  employeeId String
+  cycleId    String
+  reason     String?
+  createdAt  DateTime     @default(now())
+  employee   Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle      PayrollCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, cycleId])
+  @@map("payroll_exclusions")
+}
+
+model Loan {
+  id           String            @id @default(cuid())
+  employeeId   String
+  principal    Float
+  balance      Float
+  emi          Float
+  purpose      String?
+  status       String            @default("ACTIVE") // ACTIVE, PAID, REJECTED
+  approvedDate DateTime          @default(now())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  transactions LoanTransaction[]
+
+  @@map("loans")
+}
+
+model LoanTransaction {
+  id        String   @id @default(cuid())
+  loanId    String
+  amount    Float
+  type      String   @default("REPAYMENT") // REPAYMENT, DISBURSEMENT
+  createdAt DateTime @default(now())
+  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@map("loan_transactions")
+}
+
+model TaxDeclaration {
+  id            String   @id @default(cuid())
+  employeeId    String
+  financialYear String
+  sec80C        Float    @default(0)
+  sec80D        Float    @default(0)
+  declaredHra   Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, financialYear])
+  @@map("tax_declarations")
+}

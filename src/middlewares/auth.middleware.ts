@@ -61,14 +61,24 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
       return next(new ErrorResponse("Not authorized to access this route", 401));
     }
 
-    // Retrieve user directly from the database using prisma to ensure they still exist
-    const user = await prisma.user.findFirst({
-      where: { phone: decoded.phoneNumber },
-      include: { role: true },
-    });
+    // Retrieve user directly from the database using prisma
+    let user = null;
+    if (decoded.id) {
+      user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        include: { role: true },
+      });
+    }
+
+    if (!user && decoded.phoneNumber) {
+      user = await prisma.user.findFirst({
+        where: { phone: decoded.phoneNumber },
+        include: { role: true },
+      });
+    }
 
     if (!user) {
-      console.warn(`[Auth Middleware] User with phone number ${decoded.phoneNumber} not found in database.`);
+      console.warn(`[Auth Middleware] User with ID ${decoded.id || 'N/A'} or phone ${decoded.phoneNumber || 'N/A'} not found in database.`);
       return next(new ErrorResponse("User not found", 404));
     }
 

@@ -40,6 +40,84 @@ const setAuthCookie = (res: Response, token: string) => {
 };
 
 /**
+ * Helper to link or create employee record for the authenticated user based on their phone number
+ */
+const linkOrCreateEmployeeForUser = async (user: any) => {
+  // 1. Check if employee record is already linked to this userId
+  let employee = await prisma.employee.findUnique({
+    where: { userId: user.id }
+  });
+
+  if (!employee) {
+    // 2. Try to find employee by matching phone number suffixes
+    const cleanUserPhone = user.phone ? user.phone.replace(/\D/g, '') : '';
+    if (cleanUserPhone) {
+      const allEmployees = await prisma.employee.findMany();
+      employee = allEmployees.find(emp => {
+        if (!emp.phone) return false;
+        const cleanEmpPhone = emp.phone.replace(/\D/g, '');
+        return cleanUserPhone.endsWith(cleanEmpPhone) || cleanEmpPhone.endsWith(cleanUserPhone);
+      }) || null;
+    }
+
+    if (employee) {
+      // Link the existing onboarded employee to this user account
+      employee = await prisma.employee.update({
+        where: { id: employee.id },
+        data: { userId: user.id }
+      });
+      console.log(`[Auth] Linked existing onboarded employee ${employee.id} to user ${user.id}`);
+    } else {
+      // 3. Create a brand new employee record linked to this user
+      const empCount = await prisma.employee.count();
+      const empId = `EMP${String(empCount + 1).padStart(3, '0')}`;
+      const empName = user.name || `Employee ${empId}`;
+      const empEmail = user.email || `${empId.toLowerCase()}@symbosys.com`;
+
+      employee = await prisma.employee.create({
+        data: {
+          id: empId,
+          name: empName,
+          email: empEmail,
+          phone: user.phone,
+          status: "ACTIVE",
+          joiningDate: new Date(),
+          userId: user.id,
+        }
+      });
+      console.log(`[Auth] Created brand new employee ${empId} for user ${user.id}`);
+    }
+  }
+
+  // 4. Sync name and email from employee to user if they are empty
+  if (employee && (!user.name || !user.email)) {
+    const emailToSet = user.email || employee.email;
+    let emailExists = false;
+    if (emailToSet) {
+      const existingUserWithEmail = await prisma.user.findUnique({
+        where: { email: emailToSet }
+      });
+      if (existingUserWithEmail && existingUserWithEmail.id !== user.id) {
+        emailExists = true;
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        name: user.name || employee.name,
+        email: emailExists ? undefined : emailToSet,
+      },
+      include: { role: true }
+    });
+    // Update local user object fields
+    Object.assign(user, updatedUser);
+  }
+
+  return employee;
+};
+
+/**
  * @desc    Send OTP to user's phone number
  * @route   POST /api/v1/auth/send-otp
  * @access  Public
@@ -166,6 +244,9 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
     isNewUser = true;
   }
 
+  // Link or create the employee record for this user
+  const employee = await linkOrCreateEmployeeForUser(user);
+
   // Sign JWT and login
   const jwtSecret = env.jwt.secret || "123456";
   const token = signToken(
@@ -181,8 +262,9 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
     {
       user: {
         id: user.id,
-        name: user.name,
-        email: user.email,
+        employeeId: employee.id,
+        name: employee.name || user.name,
+        email: employee.email || user.email,
         phone: user.phone,
         role: user.role?.name || "EMPLOYEE",
       },
@@ -242,6 +324,9 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
     include: { role: true },
   });
 
+  // Link or create the employee record for this user
+  const employee = await linkOrCreateEmployeeForUser(newUser);
+
   // Sign JWT token
   const jwtSecret = env.jwt.secret || "123456";
   const token = signToken(
@@ -257,8 +342,9 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
     {
       user: {
         id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
+        employeeId: employee.id,
+        name: employee.name || newUser.name,
+        email: employee.email || newUser.email,
         phone: newUser.phone,
         role: newUser.role?.name || "EMPLOYEE",
       },
@@ -301,6 +387,9 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     return next(new ErrorResponse("Invalid credentials", statusCode.Unauthorized));
   }
 
+  // Link or create the employee record for this user
+  const employee = await linkOrCreateEmployeeForUser(user);
+
   // Sign JWT token
   const jwtSecret = env.jwt.secret || "123456";
   const token = signToken(
@@ -316,8 +405,9 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     {
       user: {
         id: user.id,
-        name: user.name,
-        email: user.email,
+        employeeId: employee.id,
+        name: employee.name || user.name,
+        email: employee.email || user.email,
         phone: user.phone,
         role: user.role?.name || "EMPLOYEE",
       },
@@ -341,10 +431,23 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
     return next(new ErrorResponse("Not authorized to access this route", statusCode.Unauthorized));
   }
 
+  const employee = await prisma.employee.findUnique({
+    where: { userId: req.user.id }
+  });
+
   return SuccessResponse(
     res,
     "Profile retrieved successfully",
-    { user: req.user },
+    {
+      user: {
+        id: req.user.id,
+        employeeId: employee?.id,
+        name: employee?.name || req.user.name,
+        email: employee?.email || req.user.email,
+        phone: req.user.phone,
+        role: req.user.role?.name || "EMPLOYEE",
+      }
+    },
     statusCode.OK
   );
 });

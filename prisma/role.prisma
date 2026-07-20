@@ -1,24 +1,27 @@
 model Role {
-  id          String       @id @default(cuid())
-  name        String       @unique // e.g. "SUPER_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", or custom roles
-  description String?
-  isSystem    Boolean      @default(false) // System-defined roles cannot be deleted/modified
-  permissions Permission[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  users       User[]
+  id               String             @id @default(cuid())
+  name             String             @unique
+  description      String?
+  isSystem         Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  memberships      Membership[]
+  role_permissions role_permissions[]
+  users            User[]
+  permissions      Permission[]       @relation("PermissionToRole")
 
   @@map("roles")
 }
 
 model Permission {
-  id          String   @id @default(cuid())
-  name        String   @unique // e.g. "users:create", "leaves:approve"
-  description String?
-  module      String?  // e.g. "User Management", "Leave Management"
-  roles       Role[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String             @id @default(cuid())
+  name             String             @unique
+  description      String?
+  module           String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  role_permissions role_permissions[]
+  roles            Role[]             @relation("PermissionToRole")
 
   @@map("permissions")
 }

@@ -1,0 +1,87 @@
+model EngagementPost {
+  id          String                   @id @default(cuid())
+  authorName  String
+  authorRole  String
+  authorAvatar String?
+  content     String
+  image       String?
+  likesCount  Int                      @default(0)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  comments    EngagementComment[]
+  likes       EngagementPostLike[]
+  reactions   EngagementPostReaction[]
+
+  @@map("engagement_posts")
+}
+
+model EngagementComment {
+  id        String         @id @default(cuid())
+  postId    String
+  userName  String
+  text      String
+  createdAt DateTime       @default(now())
+  post      EngagementPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("engagement_comments")
+}
+
+model EngagementPostLike {
+  id         String         @id @default(cuid())
+  postId     String
+  employeeId String
+  post       EngagementPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  employee   Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, employeeId])
+  @@map("engagement_post_likes")
+}
+
+model EngagementPostReaction {
+  id         String         @id @default(cuid())
+  postId     String
+  employeeId String
+  type       String // e.g. "👍", "❤️", "😆"
+  post       EngagementPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  employee   Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, employeeId, type])
+  @@map("engagement_post_reactions")
+}
+
+model EngagementMood {
+  id         String   @id @default(cuid())
+  employeeId String
+  mood       String // THRILLED, CONTENT, NEUTRAL, STRESSED
+  weekKey    String // e.g. "2026-W28"
+  createdAt  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, weekKey])
+  @@map("engagement_moods")
+}
+
+model CorporateSurvey {
+  id        String                    @id @default(cuid())
+  title     String
+  question  String
+  status    String                    @default("ACTIVE") // ACTIVE, CLOSED
+  closesAt  DateTime
+  createdAt DateTime                  @default(now())
+  responses CorporateSurveyResponse[]
+
+  @@map("corporate_surveys")
+}
+
+model CorporateSurveyResponse {
+  id         String          @id @default(cuid())
+  surveyId   String
+  employeeId String
+  rating     Int
+  createdAt  DateTime        @default(now())
+  survey     CorporateSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  employee   Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([surveyId, employeeId])
+  @@map("corporate_survey_responses")
+}
