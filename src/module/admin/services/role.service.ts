@@ -1,7 +1,7 @@
-import { RoleRepository } from "../repo/role.repo.ts";
-import { ErrorResponse } from "../../../utils/response.util.ts";
-import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
+import { statusCode } from "../../../types/types.ts";
+import { ErrorResponse } from "../../../utils/response.util.ts";
+import { RoleRepository } from "../repo/role.repo.ts";
 
 export class RoleService {
   // Permission Services

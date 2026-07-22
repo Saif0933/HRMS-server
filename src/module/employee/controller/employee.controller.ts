@@ -50,6 +50,15 @@ export const getEmployeeById = asyncHandler(async (req: Request, res: Response, 
   const id = req.params.id as string;
   const employee = await EmployeeService.getEmployeeById(id);
 
+  if (!employee) {
+    return SuccessResponse(
+      res,
+      "Employee not found",
+      null,
+      statusCode.OK
+    );
+  }
+
   return SuccessResponse(
     res,
     "Employee retrieved successfully",
@@ -90,6 +99,9 @@ export const deleteEmployee = asyncHandler(async (req: Request, res: Response, n
 // Helper to check if the requesting user has access to this employee profile
 const checkEmployeeAccess = async (req: any, employeeId: string) => {
   const employee = await EmployeeService.getEmployeeById(employeeId);
+  if (!employee) {
+    return null;
+  }
   const isSelf = req.user.id === employee.userId;
   const isAdmin = req.user.role && ["SUPER_ADMIN", "HR_ADMIN"].includes(req.user.role.name);
   if (!isSelf && !isAdmin) {
@@ -102,7 +114,15 @@ export const getEmployeeSalary = asyncHandler(async (req: any, res: Response, ne
   const id = req.params.id as string;
   
   // Ensure access
-  await checkEmployeeAccess(req, id);
+  const employee = await checkEmployeeAccess(req, id);
+  if (!employee) {
+    return SuccessResponse(
+      res,
+      "Employee not found",
+      null,
+      statusCode.OK
+    );
+  }
 
   const salaryDetails = await EmployeeService.getEmployeeSalary(id);
 
@@ -142,7 +162,15 @@ export const getEmployeePersonal = asyncHandler(async (req: any, res: Response, 
   const id = req.params.id as string;
 
   // Ensure access
-  await checkEmployeeAccess(req, id);
+  const employee = await checkEmployeeAccess(req, id);
+  if (!employee) {
+    return SuccessResponse(
+      res,
+      "Employee not found",
+      null,
+      statusCode.OK
+    );
+  }
 
   const personalDetails = await EmployeeService.getEmployeePersonal(id);
 
@@ -158,7 +186,10 @@ export const updateEmployeePersonal = asyncHandler(async (req: any, res: Respons
   const id = req.params.id as string;
 
   // Ensure access (employee can update their own personal details or admin can)
-  await checkEmployeeAccess(req, id);
+  const employee = await checkEmployeeAccess(req, id);
+  if (!employee) {
+    return next(new ErrorResponse("Employee not found", statusCode.Not_Found));
+  }
 
   const parsed = updatePersonalSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -178,7 +209,15 @@ export const updateEmployeePersonal = asyncHandler(async (req: any, res: Respons
 // Family Members & Dependents
 export const getEmployeeFamily = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
-  await checkEmployeeAccess(req, id);
+  const employee = await checkEmployeeAccess(req, id);
+  if (!employee) {
+    return SuccessResponse(
+      res,
+      "Employee not found",
+      [],
+      statusCode.OK
+    );
+  }
   const familyMembers = await EmployeeService.getEmployeeFamily(id);
 
   return SuccessResponse(
@@ -191,7 +230,10 @@ export const getEmployeeFamily = asyncHandler(async (req: any, res: Response, ne
 
 export const addEmployeeFamilyMember = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
-  await checkEmployeeAccess(req, id);
+  const employee = await checkEmployeeAccess(req, id);
+  if (!employee) {
+    return next(new ErrorResponse("Employee not found", statusCode.Not_Found));
+  }
 
   const parsed = addFamilyMemberSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -223,7 +265,15 @@ export const removeEmployeeFamilyMember = asyncHandler(async (req: any, res: Res
 // Exit Management & F&F Settlement
 export const getEmployeeExit = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
-  await checkEmployeeAccess(req, id);
+  const employee = await checkEmployeeAccess(req, id);
+  if (!employee) {
+    return SuccessResponse(
+      res,
+      "Employee not found",
+      null,
+      statusCode.OK
+    );
+  }
   const exitRecord = await EmployeeService.getEmployeeExit(id);
 
   return SuccessResponse(
@@ -236,7 +286,10 @@ export const getEmployeeExit = asyncHandler(async (req: any, res: Response, next
 
 export const saveEmployeeExit = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
-  await checkEmployeeAccess(req, id);
+  const employee = await checkEmployeeAccess(req, id);
+  if (!employee) {
+    return next(new ErrorResponse("Employee not found", statusCode.Not_Found));
+  }
 
   const parsed = saveEmployeeExitSchema.safeParse(req.body);
   if (!parsed.success) {

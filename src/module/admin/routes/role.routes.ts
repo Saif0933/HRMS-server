@@ -1,16 +1,19 @@
 import { Router } from "express";
 import { protect, restrictTo } from "../../../middlewares/auth.middleware.ts";
 import {
+  assignRoleToUser,
   createPermission,
-  getPermissions,
   createRole,
+  deleteRole,
+  getPermissions,
   getRoles,
   updateRole,
-  deleteRole,
-  assignRoleToUser,
 } from "../controllers/role.controller.ts";
 
 const router = Router();
+
+// Role permission assign route (public)
+router.put("/roles/:id", updateRole);
 
 // Protect all admin routes (User must be logged in)
 router.use(protect);
@@ -21,7 +24,6 @@ router.use(restrictTo("SUPER_ADMIN"));
 // Role routes
 router.post("/roles", createRole);
 router.get("/roles", getRoles);
-router.put("/roles/:id", updateRole);
 router.delete("/roles/:id", deleteRole);
 
 // Permission routes

@@ -214,7 +214,13 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
   // Check if user exists with this phone number
   let user = await prisma.user.findUnique({
     where: { phone },
-    include: { role: true },
+    include: { 
+      role: {
+        include: {
+          permissions: true
+        }
+      } 
+    },
   });
 
   let isNewUser = false;
@@ -239,7 +245,13 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
         email: null as any,
         roleId,
       },
-      include: { role: true },
+      include: { 
+        role: {
+          include: {
+            permissions: true
+          }
+        } 
+      },
     });
     isNewUser = true;
   }
@@ -267,6 +279,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
         email: employee.email || user.email,
         phone: user.phone,
         role: user.role?.name || "EMPLOYEE",
+        permissions: user.role?.permissions?.map((p: any) => p.name) || [],
       },
       token,
       isRegistered: true,
@@ -321,7 +334,13 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
       password: hashPassword(password),
       roleId,
     },
-    include: { role: true },
+    include: { 
+      role: {
+        include: {
+          permissions: true
+        }
+      } 
+    },
   });
 
   // Link or create the employee record for this user
@@ -347,6 +366,7 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
         email: employee.email || newUser.email,
         phone: newUser.phone,
         role: newUser.role?.name || "EMPLOYEE",
+        permissions: newUser.role?.permissions?.map((p: any) => p.name) || [],
       },
       token,
     },
@@ -375,7 +395,13 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
   let user = userConditions.length > 0
     ? await prisma.user.findFirst({
         where: { OR: userConditions },
-        include: { role: true },
+        include: { 
+          role: {
+            include: {
+              permissions: true
+            }
+          } 
+        },
       })
     : null;
 
@@ -406,7 +432,13 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
         if (!user && employee.userId) {
           user = await prisma.user.findUnique({
             where: { id: employee.userId },
-            include: { role: true },
+            include: { 
+              role: {
+                include: {
+                  permissions: true
+                }
+              } 
+            },
           });
         }
 
@@ -418,7 +450,13 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
                 employee.phone ? { phone: employee.phone } : null,
               ].filter(Boolean) as any[],
             },
-            include: { role: true },
+            include: { 
+              role: {
+                include: {
+                  permissions: true
+                }
+              } 
+            },
           });
         }
 
@@ -430,13 +468,25 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
               phone: employee.phone,
               password: hashedPass,
             },
-            include: { role: true },
+            include: { 
+              role: {
+                include: {
+                  permissions: true
+                }
+              } 
+            },
           });
         } else {
           user = await prisma.user.update({
             where: { id: user.id },
             data: { password: hashedPass },
-            include: { role: true },
+            include: { 
+              role: {
+                include: {
+                  permissions: true
+                }
+              } 
+            },
           });
         }
 
@@ -479,6 +529,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
         email: employee.email || user.email,
         phone: user.phone,
         role: user.role?.name || "EMPLOYEE",
+        permissions: user.role?.permissions?.map((p: any) => p.name) || [],
       },
       token,
     },
@@ -515,6 +566,7 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
         email: employee?.email || req.user.email,
         phone: req.user.phone,
         role: req.user.role?.name || "EMPLOYEE",
+        permissions: req.user.role?.permissions?.map((p: any) => p.name) || [],
       }
     },
     statusCode.OK

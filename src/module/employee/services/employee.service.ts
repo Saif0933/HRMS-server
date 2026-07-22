@@ -168,7 +168,7 @@ export class EmployeeService {
   static async getEmployeeById(id: string) {
     const employee = await EmployeeRepository.findById(id);
     if (!employee) {
-      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+      return null;
     }
     return employee;
   }
@@ -257,7 +257,7 @@ export class EmployeeService {
   static async getEmployeeSalary(id: string) {
     const employee = await EmployeeRepository.findById(id);
     if (!employee) {
-      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+      return null;
     }
     return {
       basic: employee.basic,
@@ -286,7 +286,7 @@ export class EmployeeService {
   static async getEmployeePersonal(id: string) {
     const employee = await EmployeeRepository.findById(id);
     if (!employee) {
-      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+      return null;
     }
     return {
       gender: employee.gender,
@@ -311,7 +311,7 @@ export class EmployeeService {
   static async getEmployeeFamily(employeeId: string) {
     const employee = await EmployeeRepository.findById(employeeId);
     if (!employee) {
-      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+      return [];
     }
     return EmployeeRepository.findFamilyMembers(employeeId);
   }

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.ts";
+import { seedPermissions } from "../seed/permission.seed.ts";
 
 /**
  * Automatically creates the users table and indexes if they do not exist
@@ -1368,6 +1369,9 @@ export async function syncDatabase() {
         console.log(`[DB Sync] Created and linked test employee ${empId} for test user 6200065370.`);
       }
     }
+
+    // Seed/Validate permissions for CRUD operations across modules
+    await seedPermissions();
 
     // Print current users status for debugging
     const allUsers = await prisma.user.findMany({

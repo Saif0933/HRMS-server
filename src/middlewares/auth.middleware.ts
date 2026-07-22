@@ -1,9 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import env from "../config/env.config";
+import { prisma } from "../db/prisma.ts";
 import { verifyToken } from "../utils/jwt.util";
 import { ErrorResponse } from "../utils/response.util";
 import { asyncHandler } from "./error.middleware";
-import { prisma } from "../db/prisma.ts";
 
 export interface AuthenticatedRequest extends Request {
   user?: any;
@@ -66,14 +66,26 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
     if (decoded.id) {
       user = await prisma.user.findUnique({
         where: { id: decoded.id },
-        include: { role: true },
+        include: { 
+          role: {
+            include: {
+              permissions: true
+            }
+          } 
+        },
       });
     }
 
     if (!user && decoded.phoneNumber) {
       user = await prisma.user.findFirst({
         where: { phone: decoded.phoneNumber },
-        include: { role: true },
+        include: { 
+          role: {
+            include: {
+              permissions: true
+            }
+          } 
+        },
       });
     }
 
