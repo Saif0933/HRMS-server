@@ -29,3 +29,19 @@ export const createGeofenceSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+export const saveRosterSchema = z.object({
+  week: z.string({ message: "Week string is required" }),
+  rosters: z.array(
+    z.object({
+      employeeId: z.string({ message: "Employee ID is required" }),
+      mon: z.string().default("General"),
+      tue: z.string().default("General"),
+      wed: z.string().default("General"),
+      thu: z.string().default("General"),
+      fri: z.string().default("General"),
+      sat: z.string().default("Week Off"),
+      sun: z.string().default("Week Off"),
+    })
+  ),
+});
+

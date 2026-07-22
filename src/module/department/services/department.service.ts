@@ -10,14 +10,17 @@ export class DepartmentService {
     managerId?: string | null;
     parentId?: string | null;
   }) {
-    const existingName = await DepartmentRepository.findByName(data.name);
+    const cleanName = data.name.trim();
+    const cleanCode = data.code.trim().toUpperCase();
+
+    const existingName = await DepartmentRepository.findByName(cleanName);
     if (existingName) {
-      throw new ErrorResponse("Department with this name already exists", statusCode.Conflict);
+      throw new ErrorResponse(`Department with name "${cleanName}" already exists. Please choose a different name.`, statusCode.Conflict);
     }
 
-    const existingCode = await DepartmentRepository.findByCode(data.code);
+    const existingCode = await DepartmentRepository.findByCode(cleanCode);
     if (existingCode) {
-      throw new ErrorResponse("Department with this code already exists", statusCode.Conflict);
+      throw new ErrorResponse(`Department code "${cleanCode}" already exists. Please choose a different code.`, statusCode.Conflict);
     }
 
     let resolvedManagerId: string | null = null;

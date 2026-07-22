@@ -135,6 +135,7 @@ export async function syncDatabase() {
         "name" TEXT NOT NULL,
         "email" TEXT NOT NULL,
         "phone" TEXT,
+        "password" TEXT,
         "avatar" TEXT,
         "status" TEXT NOT NULL DEFAULT 'PROBATION',
         "joiningDate" TIMESTAMP(3) NOT NULL,
@@ -179,6 +180,13 @@ export async function syncDatabase() {
         CONSTRAINT "employees_pkey" PRIMARY KEY ("id")
       );
     `);
+    
+    // Add password column safely if employees table already exists
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "password" TEXT;`);
+    } catch (colErr: any) {
+      // Ignore error if column already exists
+    }
     await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "employees_email_key" ON "employees"("email");
     `);
@@ -724,6 +732,27 @@ export async function syncDatabase() {
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "geofence_locations_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "shift_rosters" (
+        "id" TEXT NOT NULL,
+        "employeeId" TEXT NOT NULL,
+        "week" TEXT NOT NULL,
+        "mon" TEXT NOT NULL DEFAULT 'General',
+        "tue" TEXT NOT NULL DEFAULT 'General',
+        "wed" TEXT NOT NULL DEFAULT 'General',
+        "thu" TEXT NOT NULL DEFAULT 'General',
+        "fri" TEXT NOT NULL DEFAULT 'General',
+        "sat" TEXT NOT NULL DEFAULT 'Week Off',
+        "sun" TEXT NOT NULL DEFAULT 'Week Off',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "shift_rosters_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "shift_rosters_employeeId_week_key" ON "shift_rosters"("employeeId", "week");
     `);
 
     await prisma.$executeRawUnsafe(`

@@ -8,6 +8,8 @@ import {
   updateEmployeeSchema,
   updateSalarySchema,
   updatePersonalSchema,
+  addFamilyMemberSchema,
+  saveEmployeeExitSchema,
 } from "../validators/employee.validator.ts";
 
 export const createEmployee = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -169,6 +171,84 @@ export const updateEmployeePersonal = asyncHandler(async (req: any, res: Respons
     res,
     "Employee personal details updated successfully",
     updatedEmployee,
+    statusCode.OK
+  );
+});
+
+// Family Members & Dependents
+export const getEmployeeFamily = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  await checkEmployeeAccess(req, id);
+  const familyMembers = await EmployeeService.getEmployeeFamily(id);
+
+  return SuccessResponse(
+    res,
+    "Employee family details retrieved successfully",
+    familyMembers,
+    statusCode.OK
+  );
+});
+
+export const addEmployeeFamilyMember = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  await checkEmployeeAccess(req, id);
+
+  const parsed = addFamilyMemberSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const member = await EmployeeService.addEmployeeFamilyMember(id, parsed.data);
+
+  return SuccessResponse(
+    res,
+    "Family member added successfully",
+    member,
+    statusCode.Created
+  );
+});
+
+export const removeEmployeeFamilyMember = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const familyId = req.params.familyId as string;
+  await EmployeeService.removeEmployeeFamilyMember(familyId);
+
+  return SuccessResponse(
+    res,
+    "Family member deleted successfully",
+    {},
+    statusCode.OK
+  );
+});
+
+// Exit Management & F&F Settlement
+export const getEmployeeExit = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  await checkEmployeeAccess(req, id);
+  const exitRecord = await EmployeeService.getEmployeeExit(id);
+
+  return SuccessResponse(
+    res,
+    "Employee exit record retrieved successfully",
+    exitRecord,
+    statusCode.OK
+  );
+});
+
+export const saveEmployeeExit = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  await checkEmployeeAccess(req, id);
+
+  const parsed = saveEmployeeExitSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const exitRecord = await EmployeeService.upsertEmployeeExit(id, parsed.data);
+
+  return SuccessResponse(
+    res,
+    "Employee exit record saved successfully",
+    exitRecord,
     statusCode.OK
   );
 });

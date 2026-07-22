@@ -17,8 +17,19 @@ export const errorMiddleware = (
   err.statusCode ||= 500;
 
   if (err.name === "CastError") err.message = "Invalid ID";
-  if ("code" in err && err.code === "P2025") {
+  if ("code" in err && (err as any).code === "P2025") {
     err.message = "Item not found";
+  }
+  if ("code" in err && (err as any).code === "P2003") {
+    err.statusCode = statusCode.Bad_Request;
+    err.message = "Foreign key constraint error: associated employee record not found";
+  }
+  if ("code" in err && (err as any).code === "P2002") {
+    const target = (err as any).meta?.target;
+    err.statusCode = statusCode.Conflict;
+    err.message = target 
+      ? `A record with this ${Array.isArray(target) ? target.join(', ') : target} already exists` 
+      : "Conflict: Department name or code already exists";
   }
 
    // ✅ Handle Zod error

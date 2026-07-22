@@ -367,23 +367,92 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
 
   const { email, phone, password } = parsed.data;
 
-  // Find user by email or phone
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        email ? { email } : {},
-        phone ? { phone } : {},
-      ],
-    },
-    include: { role: true },
-  });
+  // 1. Search User table by email or phone
+  const userConditions: any[] = [];
+  if (email) userConditions.push({ email });
+  if (phone) userConditions.push({ phone });
 
-  if (!user || !user.password) {
-    return next(new ErrorResponse("Invalid credentials", statusCode.Unauthorized));
+  let user = userConditions.length > 0
+    ? await prisma.user.findFirst({
+        where: { OR: userConditions },
+        include: { role: true },
+      })
+    : null;
+
+  let passwordMatches = false;
+
+  if (user && user.password && comparePassword(password, user.password)) {
+    passwordMatches = true;
   }
 
-  // Verify password match
-  if (!comparePassword(password, user.password)) {
+  // 2. If user missing or password mismatch on User table, fallback to Employee table
+  if (!user || !passwordMatches) {
+    const empConditions: any[] = [];
+    if (email) empConditions.push({ email });
+    if (phone) empConditions.push({ phone });
+
+    const employee = empConditions.length > 0
+      ? await prisma.employee.findFirst({
+          where: { OR: empConditions },
+        })
+      : null;
+
+    if (employee && employee.password) {
+      const hashedPass = hashPassword(password);
+      const isEmpPassMatch = employee.password === hashedPass || employee.password === password;
+
+      if (isEmpPassMatch) {
+        // Link or create user account matching this employee record
+        if (!user && employee.userId) {
+          user = await prisma.user.findUnique({
+            where: { id: employee.userId },
+            include: { role: true },
+          });
+        }
+
+        if (!user) {
+          user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                employee.email ? { email: employee.email } : null,
+                employee.phone ? { phone: employee.phone } : null,
+              ].filter(Boolean) as any[],
+            },
+            include: { role: true },
+          });
+        }
+
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              name: employee.name,
+              email: employee.email,
+              phone: employee.phone,
+              password: hashedPass,
+            },
+            include: { role: true },
+          });
+        } else {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { password: hashedPass },
+            include: { role: true },
+          });
+        }
+
+        if (!employee.userId) {
+          await prisma.employee.update({
+            where: { id: employee.id },
+            data: { userId: user.id },
+          });
+        }
+
+        passwordMatches = true;
+      }
+    }
+  }
+
+  if (!user || !passwordMatches) {
     return next(new ErrorResponse("Invalid credentials", statusCode.Unauthorized));
   }
 

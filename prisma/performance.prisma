@@ -40,3 +40,21 @@ model PerformanceAppraisal {
   @@unique([employeeId, cycle])
   @@map("performance_appraisals")
 }
+
+model PerformanceRating {
+  id         String   @id @default(cuid())
+  employeeId String
+  month      String   // e.g. "July 2026", "August 2026"
+  rating     Float    // e.g. 4.6
+  status     String   @default("EXCEEDS EXPECTATIONS") // OUTSTANDING, EXCEEDS EXPECTATIONS, MEETS EXPECTATIONS, NEEDS IMPROVEMENT
+  tasks      String   @default("95%")
+  quality    String   @default("4.5/5")
+  teamwork   String   @default("4.5/5")
+  feedback   String?
+  givenBy    String   @default("Super Admin")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("performance_ratings")
+}

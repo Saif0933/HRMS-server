@@ -119,4 +119,93 @@ export class EmployeeRepository {
       where: { id },
     });
   }
+
+  // Family Members & Dependents
+  static async findFamilyMembers(employeeId: string) {
+    return prisma.employeeFamily.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  static async createFamilyMember(employeeId: string, data: any) {
+    return prisma.employeeFamily.create({
+      data: {
+        employeeId,
+        name: data.name,
+        relation: data.relation,
+        dob: data.dob ? new Date(data.dob) : null,
+        contact: data.contact || null,
+        bloodGroup: data.bloodGroup || null,
+        isNominee: data.isNominee ?? false,
+        isInsuranceCovered: data.isInsuranceCovered ?? false,
+      },
+    });
+  }
+
+  static async deleteFamilyMember(id: string) {
+    return prisma.employeeFamily.delete({
+      where: { id },
+    });
+  }
+
+  // Employee Exit & Clearance
+  static async findExitByEmployeeId(employeeId: string) {
+    try {
+      return await prisma.employeeExit.findUnique({
+        where: { employeeId },
+      });
+    } catch (error: any) {
+      if (error?.code === "P2021" || error?.message?.includes("does not exist")) {
+        console.warn(`[Employee Repo] employee_exits table does not exist in DB yet.`);
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  static async upsertExit(employeeId: string, data: any) {
+    try {
+      return await prisma.employeeExit.upsert({
+        where: { employeeId },
+        update: {
+          resignationDate: data.resignationDate,
+          lastWorkingDay: data.lastWorkingDay,
+          reason: data.reason || null,
+          noticeDays: data.noticeDays ?? 30,
+          leaveEncashDays: data.leaveEncashDays ?? 0,
+          penaltyDeduction: data.penaltyDeduction ?? 0,
+          itClearance: data.itClearance ?? false,
+          financeClearance: data.financeClearance ?? false,
+          adminClearance: data.adminClearance ?? false,
+          hrClearance: data.hrClearance ?? false,
+          status: data.status || "PENDING_CLEARANCE",
+          settledDate: data.settledDate ? new Date(data.settledDate) : null,
+          netPayable: data.netPayable ?? null,
+        },
+        create: {
+          employeeId,
+          resignationDate: data.resignationDate,
+          lastWorkingDay: data.lastWorkingDay,
+          reason: data.reason || null,
+          noticeDays: data.noticeDays ?? 30,
+          leaveEncashDays: data.leaveEncashDays ?? 0,
+          penaltyDeduction: data.penaltyDeduction ?? 0,
+          itClearance: data.itClearance ?? false,
+          financeClearance: data.financeClearance ?? false,
+          adminClearance: data.adminClearance ?? false,
+          hrClearance: data.hrClearance ?? false,
+          status: data.status || "PENDING_CLEARANCE",
+          settledDate: data.settledDate ? new Date(data.settledDate) : null,
+          netPayable: data.netPayable ?? null,
+        },
+      });
+    } catch (error: any) {
+      if (error?.code === "P2021" || error?.message?.includes("does not exist")) {
+        console.warn(`[Employee Repo] employee_exits table does not exist in DB yet.`);
+        return null;
+      }
+      throw error;
+    }
+  }
 }

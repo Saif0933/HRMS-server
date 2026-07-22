@@ -84,5 +84,51 @@ export class AttendanceRepository {
       where: { id },
     });
   }
+
+  static async findRostersByWeek(week: string) {
+    return (prisma as any).shiftRoster.findMany({
+      where: { week },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            designation: true,
+          },
+        },
+      },
+    });
+  }
+
+  static async upsertRoster(data: {
+    employeeId: string;
+    week: string;
+    mon: string;
+    tue: string;
+    wed: string;
+    thu: string;
+    fri: string;
+    sat: string;
+    sun: string;
+  }) {
+    return (prisma as any).shiftRoster.upsert({
+      where: {
+        employeeId_week: {
+          employeeId: data.employeeId,
+          week: data.week,
+        },
+      },
+      update: {
+        mon: data.mon,
+        tue: data.tue,
+        wed: data.wed,
+        thu: data.thu,
+        fri: data.fri,
+        sat: data.sat,
+        sun: data.sun,
+      },
+      create: data,
+    });
+  }
 }
 

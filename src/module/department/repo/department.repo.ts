@@ -35,14 +35,24 @@ export class DepartmentRepository {
   }
 
   static async findByName(name: string) {
-    return prisma.department.findUnique({
-      where: { name },
+    return prisma.department.findFirst({
+      where: {
+        name: {
+          equals: name.trim(),
+          mode: "insensitive"
+        }
+      },
     });
   }
 
   static async findByCode(code: string) {
-    return prisma.department.findUnique({
-      where: { code },
+    return prisma.department.findFirst({
+      where: {
+        code: {
+          equals: code.trim().toUpperCase(),
+          mode: "insensitive"
+        }
+      },
     });
   }
 

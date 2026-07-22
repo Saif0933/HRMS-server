@@ -272,10 +272,35 @@ export class LeaveService {
     });
 
     if (overlapping) {
-      throw new ErrorResponse(
-        "There is already a pending or approved leave request overlapping with this date range",
-        statusCode.Conflict
-      );
+      // Automatically supersede previous request for the overlapping dates
+      await prisma.leaveRequest.update({
+        where: { id: overlapping.id },
+        data: {
+          status: "CANCELLED",
+          rejectionReason: "Superseded by new leave request",
+        },
+      });
+
+      // Adjust allocation counters accordingly
+      const year = data.startDate.getFullYear();
+      const alloc = await LeaveRepository.findAllocation(data.employeeId, data.leaveTypeId, year);
+      if (alloc) {
+        if (overlapping.status === "PENDING" && alloc.pending >= overlapping.totalDays) {
+          await prisma.leaveAllocation.update({
+            where: { id: alloc.id },
+            data: {
+              pending: { decrement: overlapping.totalDays },
+            },
+          });
+        } else if (overlapping.status === "APPROVED" && alloc.used >= overlapping.totalDays) {
+          await prisma.leaveAllocation.update({
+            where: { id: alloc.id },
+            data: {
+              used: { decrement: overlapping.totalDays },
+            },
+          });
+        }
+      }
     }
 
     // 6. Check leave balance (unpaid / LWP doesn't enforce balance checks)

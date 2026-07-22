@@ -89,4 +89,19 @@ export class PerformanceRepository {
       { rating: "Outstanding (5)", Employees: counts[5] || 0 },
     ];
   }
+
+  // Monthly Performance Ratings
+  static async findMonthlyRatings(employeeId?: string) {
+    return prisma.performanceRating.findMany({
+      where: employeeId ? { employeeId } : undefined,
+      include: { employee: true },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  static async createMonthlyRating(data: any) {
+    return prisma.performanceRating.create({
+      data,
+    });
+  }
 }

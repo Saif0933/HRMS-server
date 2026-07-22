@@ -8,6 +8,7 @@ import {
   updateGoalProgressSchema,
   createFeedbackSchema,
   saveAppraisalSchema,
+  createMonthlyRatingSchema,
 } from "../validators/performance.validator.ts";
 
 // Goals & KRAs
@@ -115,5 +116,34 @@ export const getBellCurveDistribution = asyncHandler(async (req: Request, res: R
     "Appraisal bell curve distribution retrieved successfully",
     distribution,
     statusCode.OK
+  );
+});
+
+// Monthly Performance Ratings (Super Admin / Employee Management)
+export const getMonthlyRatings = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const employeeId = req.query.employeeId as string | undefined;
+  const ratings = await PerformanceService.getMonthlyRatings(employeeId);
+
+  return SuccessResponse(
+    res,
+    "Monthly performance ratings retrieved successfully",
+    ratings,
+    statusCode.OK
+  );
+});
+
+export const createMonthlyRating = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = createMonthlyRatingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const rating = await PerformanceService.createMonthlyRating(parsed.data);
+
+  return SuccessResponse(
+    res,
+    "Monthly performance rating created successfully",
+    rating,
+    statusCode.Created
   );
 });

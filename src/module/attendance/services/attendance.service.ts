@@ -76,10 +76,8 @@ export class AttendanceService {
       }
 
       if (!isWithinAnyFence) {
-        throw new ErrorResponse(
-          `Outside allowed geofenced perimeter. Closest fence is ${Math.round(minDistance)}m away. Punch blocked!`,
-          statusCode.Forbidden
-        );
+        const distLabel = minDistance >= 1000 ? `${(minDistance / 1000).toFixed(1)}km` : `${Math.round(minDistance)}m`;
+        data.method = `${data.method} (Out of Geofence - ${distLabel})`;
       }
     }
 
@@ -198,6 +196,31 @@ export class AttendanceService {
 
   static async deleteGeofence(id: string) {
     return AttendanceRepository.deleteGeofence(id);
+  }
+
+  static async getRosters(week: string) {
+    return AttendanceRepository.findRostersByWeek(week);
+  }
+
+  static async saveRosters(week: string, rosters: Array<{
+    employeeId: string;
+    mon: string;
+    tue: string;
+    wed: string;
+    thu: string;
+    fri: string;
+    sat: string;
+    sun: string;
+  }>) {
+    const results = [];
+    for (const item of rosters) {
+      const res = await AttendanceRepository.upsertRoster({
+        ...item,
+        week,
+      });
+      results.push(res);
+    }
+    return results;
   }
 }
 

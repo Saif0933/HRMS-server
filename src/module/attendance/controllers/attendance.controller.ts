@@ -8,6 +8,7 @@ import {
   applyRegularizationSchema,
   approveRejectRegularizationSchema,
   createGeofenceSchema,
+  saveRosterSchema,
 } from "../validators/attendance.validator.ts";
 
 export const getPunches = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -109,6 +110,32 @@ export const deleteGeofence = asyncHandler(async (req: Request, res: Response, n
     res,
     "Geofence location deleted successfully",
     null,
+    statusCode.OK
+  );
+});
+
+export const getRosters = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const week = (req.query.week as string) || "Week 27 (Jul 1 - Jul 5)";
+  const rosters = await AttendanceService.getRosters(week);
+  return SuccessResponse(
+    res,
+    "Shift rosters retrieved successfully",
+    rosters,
+    statusCode.OK
+  );
+});
+
+export const saveRosters = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = saveRosterSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return next(parsed.error);
+  }
+
+  const rosters = await AttendanceService.saveRosters(parsed.data.week, parsed.data.rosters);
+  return SuccessResponse(
+    res,
+    "Weekly shift roster saved successfully",
+    rosters,
     statusCode.OK
   );
 });

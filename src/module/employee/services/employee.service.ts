@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { EmployeeRepository } from "../repo/employee.repo.ts";
 import { ErrorResponse } from "../../../utils/response.util.ts";
 import { statusCode } from "../../../types/types.ts";
+import { prisma } from "../../../db/prisma.ts";
 
 function generateEmployeeId() {
   return `EMP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
@@ -10,8 +11,26 @@ function generateEmployeeId() {
 export class EmployeeService {
   static async createEmployee(data: any) {
     // 1. Resolve ID (ensure unique)
-    let employeeId = data.id;
-    if (!employeeId) {
+    let employeeId = data.id || data.employeeId;
+    if (employeeId) {
+      const existingId = await EmployeeRepository.findById(employeeId);
+      if (existingId) {
+        let uniqueId = generateEmployeeId();
+        let attempts = 0;
+        while (attempts < 5) {
+          const existing = await EmployeeRepository.findById(uniqueId);
+          if (!existing) {
+            employeeId = uniqueId;
+            break;
+          }
+          uniqueId = generateEmployeeId();
+          attempts++;
+        }
+        if (!employeeId || (await EmployeeRepository.findById(employeeId))) {
+          employeeId = `EMP-${Date.now().toString().slice(-6)}`;
+        }
+      }
+    } else {
       let uniqueId = generateEmployeeId();
       let attempts = 0;
       while (attempts < 5) {
@@ -24,19 +43,16 @@ export class EmployeeService {
         attempts++;
       }
       if (!employeeId) {
-        employeeId = `EMP-${crypto.randomUUID().substring(0, 8).toUpperCase()}`;
-      }
-    } else {
-      const existingId = await EmployeeRepository.findById(employeeId);
-      if (existingId) {
-        throw new ErrorResponse(`Employee with ID ${employeeId} already exists`, statusCode.Conflict);
+        employeeId = `EMP-${Date.now().toString().slice(-6)}`;
       }
     }
+    data.id = employeeId;
 
     // 2. Validate email uniqueness
     const existingEmail = await EmployeeRepository.findByEmail(data.email);
     if (existingEmail) {
-      throw new ErrorResponse("Employee with this email already exists", statusCode.Conflict);
+      const parts = (data.email || 'employee@example.com').split('@');
+      data.email = `${parts[0]}.${Date.now().toString().slice(-4)}@${parts[1] || 'example.com'}`;
     }
 
     // 3. Validate user account binding
@@ -87,6 +103,47 @@ export class EmployeeService {
 
       if (data.managerId === employeeId) {
         throw new ErrorResponse("An employee cannot be their own manager", statusCode.Bad_Request);
+      }
+    }
+
+    // Hash password if provided
+    if (data.password) {
+      data.password = crypto.createHash("sha256").update(data.password).digest("hex");
+    }
+
+    // Sync or create associated User account for login authentication
+    if (data.email && data.password) {
+      try {
+        const searchConditions: any[] = [];
+        if (data.email) searchConditions.push({ email: data.email });
+        if (data.phone) searchConditions.push({ phone: data.phone });
+
+        let existingUser = searchConditions.length > 0
+          ? await prisma.user.findFirst({ where: { OR: searchConditions } })
+          : null;
+
+        if (!existingUser) {
+          existingUser = await prisma.user.create({
+            data: {
+              name: data.name,
+              email: data.email,
+              phone: data.phone || null,
+              password: data.password,
+            }
+          });
+        } else {
+          existingUser = await prisma.user.update({
+            where: { id: existingUser.id },
+            data: {
+              password: data.password,
+              name: existingUser.name || data.name,
+              email: existingUser.email || data.email,
+            }
+          });
+        }
+        data.userId = existingUser.id;
+      } catch (userErr: any) {
+        console.warn("[Employee Service] Could not sync User table during employee creation:", userErr.message);
       }
     }
 
@@ -181,6 +238,10 @@ export class EmployeeService {
       }
     }
 
+    if (data.password) {
+      data.password = crypto.createHash("sha256").update(data.password).digest("hex");
+    }
+
     return EmployeeRepository.update(id, data);
   }
 
@@ -244,5 +305,53 @@ export class EmployeeService {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
     return EmployeeRepository.update(id, data);
+  }
+
+  // Family Members & Dependents
+  static async getEmployeeFamily(employeeId: string) {
+    const employee = await EmployeeRepository.findById(employeeId);
+    if (!employee) {
+      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+    }
+    return EmployeeRepository.findFamilyMembers(employeeId);
+  }
+
+  static async addEmployeeFamilyMember(employeeId: string, data: any) {
+    const employee = await EmployeeRepository.findById(employeeId);
+    if (!employee) {
+      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+    }
+    return EmployeeRepository.createFamilyMember(employeeId, data);
+  }
+
+  static async removeEmployeeFamilyMember(familyId: string) {
+    return EmployeeRepository.deleteFamilyMember(familyId);
+  }
+
+  // Employee Exit & Clearance Service Methods
+  static async getEmployeeExit(employeeId: string) {
+    const employee = await EmployeeRepository.findById(employeeId);
+    if (!employee) {
+      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+    }
+    return EmployeeRepository.findExitByEmployeeId(employeeId);
+  }
+
+  static async upsertEmployeeExit(employeeId: string, data: any) {
+    const employee = await EmployeeRepository.findById(employeeId);
+    if (!employee) {
+      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+    }
+    const exitRecord = await EmployeeRepository.upsertExit(employeeId, data);
+    
+    // Sync employee status and exit date
+    const isApproved = data.status === "CLEARANCE_APPROVED" || data.status === "SETTLED" || (data.itClearance && data.financeClearance && data.adminClearance && data.hrClearance);
+    await EmployeeRepository.update(employeeId, {
+      exitDate: data.lastWorkingDay,
+      clearanceStatus: isApproved ? "Approved" : "Pending",
+      status: isApproved ? "RESIGNED" : employee.status,
+    });
+
+    return exitRecord;
   }
 }

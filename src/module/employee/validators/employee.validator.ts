@@ -24,6 +24,7 @@ export const createEmployeeSchema = z
       .string({ message: "Email is required" })
       .email("Invalid email format"),
     phone: z.string().optional().nullable(),
+    password: z.string().optional().nullable(),
     avatar: z.string().optional().nullable(),
     status: EmployeeStatusEnum.optional(),
     joiningDate: dateSchema,
@@ -107,6 +108,7 @@ export const updateEmployeeSchema = z
     lastName: z.string().optional(),
     email: z.string().email("Invalid email format").optional(),
     phone: z.string().optional().nullable(),
+    password: z.string().optional().nullable(),
     avatar: z.string().optional().nullable(),
     status: EmployeeStatusEnum.optional(),
     joiningDate: optionalDateSchema,
@@ -219,3 +221,29 @@ export const updatePersonalSchema = z
       ...(dob ? { dob } : {}),
     };
   });
+
+export const addFamilyMemberSchema = z.object({
+  name: z.string({ message: "Family member full name is required" }).min(1),
+  relation: z.string({ message: "Relationship type is required" }).min(1),
+  dob: z.string().optional().nullable(),
+  contact: z.string().optional().nullable(),
+  bloodGroup: z.string().optional().nullable(),
+  isNominee: z.boolean().optional().default(false),
+  isInsuranceCovered: z.boolean().optional().default(false),
+});
+
+export const saveEmployeeExitSchema = z.object({
+  resignationDate: dateSchema,
+  lastWorkingDay: dateSchema,
+  reason: z.string().optional().nullable(),
+  noticeDays: z.number().optional().default(30),
+  leaveEncashDays: z.number().optional().default(0),
+  penaltyDeduction: z.number().optional().default(0),
+  itClearance: z.boolean().optional().default(false),
+  financeClearance: z.boolean().optional().default(false),
+  adminClearance: z.boolean().optional().default(false),
+  hrClearance: z.boolean().optional().default(false),
+  status: z.string().optional().default("PENDING_CLEARANCE"),
+  settledDate: optionalDateSchema,
+  netPayable: z.number().optional().nullable(),
+});

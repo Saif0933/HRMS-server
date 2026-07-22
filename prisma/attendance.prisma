@@ -42,3 +42,22 @@ model GeofenceLocation {
   @@map("geofence_locations")
 }
 
+model ShiftRoster {
+  id         String   @id @default(cuid())
+  employeeId String
+  week       String
+  mon        String   @default("General")
+  tue        String   @default("General")
+  wed        String   @default("General")
+  thu        String   @default("General")
+  fri        String   @default("General")
+  sat        String   @default("Week Off")
+  sun        String   @default("Week Off")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, week])
+  @@map("shift_rosters")
+}
+

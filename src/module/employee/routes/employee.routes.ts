@@ -10,6 +10,11 @@ import {
   updateEmployeeSalary,
   getEmployeePersonal,
   updateEmployeePersonal,
+  getEmployeeFamily,
+  addEmployeeFamilyMember,
+  removeEmployeeFamilyMember,
+  getEmployeeExit,
+  saveEmployeeExit,
 } from "../controller/employee.controller.ts";
 
 const router = Router();
@@ -31,5 +36,15 @@ router.put("/:id/salary", updateEmployeeSalary);
 // Personal Details routes (viewing/updating use self-or-admin checks in controller)
 router.get("/:id/personal", getEmployeePersonal);
 router.put("/:id/personal", updateEmployeePersonal);
+
+// Family & Dependent Details routes
+router.get("/:id/family", getEmployeeFamily);
+router.post("/:id/family", addEmployeeFamilyMember);
+router.delete("/:id/family/:familyId", removeEmployeeFamilyMember);
+
+// Exit Management & F&F routes
+router.get("/:id/exit", getEmployeeExit);
+router.post("/:id/exit", saveEmployeeExit);
+router.put("/:id/exit", saveEmployeeExit);
 
 export default router;

@@ -8,6 +8,8 @@ import {
   createFeedback,
   getBellCurveDistribution,
   saveAppraisal,
+  getMonthlyRatings,
+  createMonthlyRating,
 } from "../controllers/performance.controller.ts";
 
 const router = Router();
@@ -27,5 +29,9 @@ router.post("/feedbacks", createFeedback);
 // 3. Appraisals & Bell Curve Routes
 router.get("/bellcurve", getBellCurveDistribution);
 router.post("/appraisals", restrictTo("SUPER_ADMIN", "HR_ADMIN", "MANAGER"), saveAppraisal);
+
+// 4. Monthly Rating Routes (Employee Profile / Super Admin)
+router.get("/ratings", getMonthlyRatings);
+router.post("/ratings", restrictTo("SUPER_ADMIN", "HR_ADMIN", "MANAGER"), createMonthlyRating);
 
 export default router;

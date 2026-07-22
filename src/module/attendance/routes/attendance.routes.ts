@@ -9,6 +9,8 @@ import {
   getGeofences,
   createGeofence,
   deleteGeofence,
+  getRosters,
+  saveRosters,
 } from "../controllers/attendance.controller.ts";
 
 const router = Router();
@@ -24,5 +26,7 @@ router.patch("/regularizations/:id", updateRegularization);
 router.get("/geofences", getGeofences);
 router.post("/geofences", createGeofence);
 router.delete("/geofences/:id", deleteGeofence);
+router.get("/rosters", getRosters);
+router.post("/rosters", saveRosters);
 
 export default router;
