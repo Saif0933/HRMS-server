@@ -61,6 +61,9 @@ export const createEmployeeSchema = z
     qualification: z.string().optional().nullable(),
     university: z.string().optional().nullable(),
     passingYear: z.string().optional().nullable(),
+    fatherName: z.string().optional().nullable(),
+    permanentAddress: z.string().optional().nullable(),
+    languagesSpoken: z.string().optional().nullable(),
 
     // Workflows & Exit
     probationDuration: z.string().optional().nullable(),
@@ -145,6 +148,9 @@ export const updateEmployeeSchema = z
     qualification: z.string().optional().nullable(),
     university: z.string().optional().nullable(),
     passingYear: z.string().optional().nullable(),
+    fatherName: z.string().optional().nullable(),
+    permanentAddress: z.string().optional().nullable(),
+    languagesSpoken: z.string().optional().nullable(),
 
     // Workflows & Exit
     probationDuration: z.string().optional().nullable(),
@@ -212,6 +218,9 @@ export const updatePersonalSchema = z
     qualification: z.string().optional().nullable(),
     university: z.string().optional().nullable(),
     passingYear: z.string().optional().nullable(),
+    fatherName: z.string().optional().nullable(),
+    permanentAddress: z.string().optional().nullable(),
+    languagesSpoken: z.string().optional().nullable(),
   })
   .transform((data) => {
     const dob = data.dob || data.dateOfBirth;

@@ -296,6 +296,9 @@ export class EmployeeService {
       qualification: employee.qualification,
       university: employee.university,
       passingYear: employee.passingYear,
+      fatherName: employee.fatherName,
+      permanentAddress: employee.permanentAddress,
+      languagesSpoken: employee.languagesSpoken,
     };
   }
 

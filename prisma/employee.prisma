@@ -31,6 +31,9 @@ model Employee {
   qualification      String?
   university         String?
   passingYear        String?
+  fatherName         String?
+  permanentAddress   String?
+  languagesSpoken    String?
   probationDuration  String?
   probationEnd       DateTime?
   confirmationStatus ConfirmationStatus @default(PENDING)
