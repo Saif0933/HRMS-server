@@ -27,7 +27,7 @@ export const getOrCreateCycle = asyncHandler(async (req: Request, res: Response,
 });
 
 export const updateCycleStatus = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const parsed = updateCycleStatusSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
@@ -38,7 +38,7 @@ export const updateCycleStatus = asyncHandler(async (req: Request, res: Response
 });
 
 export const calculateArrears = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { cycleId } = req.params;
+  const cycleId = req.params.cycleId as string;
   if (!cycleId) {
     return next(new Error("Cycle ID is required"));
   }
@@ -63,7 +63,7 @@ export const applyBulkRevision = asyncHandler(async (req: Request, res: Response
 
 // Exclusion / Hold Controller
 export const toggleStopPayment = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { cycleId } = req.params;
+  const cycleId = req.params.cycleId as string;
   const parsed = toggleHoldSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);

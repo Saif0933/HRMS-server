@@ -3,28 +3,69 @@ import { ErrorResponse } from "../../../utils/response.util.ts";
 import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
 
+const formatPunchTime = (createdAt: Date, timeStr: string) => {
+  if (!createdAt) return timeStr;
+  const now = new Date();
+  const punchDate = new Date(createdAt);
+  
+  let clockPart = timeStr;
+  if (timeStr.includes(",")) {
+    clockPart = timeStr.split(",")[1]?.trim() ?? timeStr;
+  } else {
+    const match = timeStr.match(/\d{1,2}:\d{2}\s*(?:AM|PM)/i);
+    if (match) clockPart = match[0];
+  }
+
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const punchMidnight = new Date(punchDate.getFullYear(), punchDate.getMonth(), punchDate.getDate()).getTime();
+
+  const diffDays = Math.round((nowMidnight - punchMidnight) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return `Today, ${clockPart}`;
+  } else if (diffDays === 1) {
+    return `Yesterday, ${clockPart}`;
+  } else if (diffDays > 1 && diffDays < 7) {
+    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return `${daysOfWeek[punchDate.getDay()]}, ${clockPart}`;
+  } else {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const day = punchDate.getDate().toString().padStart(2, '0');
+    const month = monthNames[punchDate.getMonth()];
+    return `${day} ${month} ${punchDate.getFullYear()}, ${clockPart}`;
+  }
+};
+
 export class AttendanceService {
   static async getPunches(employeeId: string) {
     let punches = await AttendanceRepository.findPunchesByEmployee(employeeId);
 
     if (punches.length === 0) {
-      // Seed default punches
-      await AttendanceRepository.createPunch({
-        employeeId,
-        time: "Yesterday, 09:34 AM",
-        type: "In",
-        method: "Biometric Portal",
-        lat: 23.357445,
-        lng: 85.311484,
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      await prisma.attendancePunch.create({
+        data: {
+          employeeId,
+          time: "Yesterday, 09:34 AM",
+          type: "In",
+          method: "Biometric Portal",
+          lat: 23.357445,
+          lng: 85.311484,
+          createdAt: yesterday
+        }
       });
 
-      await AttendanceRepository.createPunch({
-        employeeId,
-        time: "Yesterday, 06:31 PM",
-        type: "Out",
-        method: "Biometric Portal",
-        lat: 23.357445,
-        lng: 85.311484,
+      await prisma.attendancePunch.create({
+        data: {
+          employeeId,
+          time: "Yesterday, 06:31 PM",
+          type: "Out",
+          method: "Biometric Portal",
+          lat: 23.357445,
+          lng: 85.311484,
+          createdAt: yesterday
+        }
       });
 
       punches = await AttendanceRepository.findPunchesByEmployee(employeeId);
@@ -32,12 +73,13 @@ export class AttendanceService {
 
     return punches.map((p) => ({
       id: p.id,
-      time: p.time,
+      time: formatPunchTime(p.createdAt, p.time),
       type: p.type,
       method: p.method,
       lat: p.lat,
       lng: p.lng,
       selfiePreview: p.selfiePreview,
+      createdAt: p.createdAt ? p.createdAt.toISOString() : undefined,
     }));
   }
 
