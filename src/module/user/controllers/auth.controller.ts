@@ -278,6 +278,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
         name: employee.name || user.name,
         email: employee.email || user.email,
         phone: user.phone,
+        avatar: employee.avatar || null,
         role: user.role?.name || "EMPLOYEE",
         permissions: user.role?.permissions?.map((p: any) => p.name) || [],
       },
@@ -528,6 +529,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
         name: employee.name || user.name,
         email: employee.email || user.email,
         phone: user.phone,
+        avatar: employee.avatar || null,
         role: user.role?.name || "EMPLOYEE",
         permissions: user.role?.permissions?.map((p: any) => p.name) || [],
       },
@@ -551,9 +553,23 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
     return next(new ErrorResponse("Not authorized to access this route", statusCode.Unauthorized));
   }
 
-  const employee = await prisma.employee.findUnique({
+  // 1. Try finding linked employee by userId
+  let employee = await prisma.employee.findUnique({
     where: { userId: req.user.id }
   });
+
+  // 2. Fallback: match by email or phone if not linked by userId
+  if (!employee && (req.user.email || req.user.phone)) {
+    const conditions: any[] = [];
+    if (req.user.email) conditions.push({ email: req.user.email });
+    if (req.user.phone) conditions.push({ phone: req.user.phone });
+    
+    employee = await prisma.employee.findFirst({
+      where: { OR: conditions }
+    });
+  }
+
+  const avatarUrl = employee?.avatar || null;
 
   return SuccessResponse(
     res,
@@ -561,10 +577,12 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
     {
       user: {
         id: req.user.id,
-        employeeId: employee?.id,
+        employeeId: employee?.id || null,
         name: employee?.name || req.user.name,
         email: employee?.email || req.user.email,
         phone: req.user.phone,
+        avatar: avatarUrl,
+        image: avatarUrl,
         role: req.user.role?.name || "EMPLOYEE",
         permissions: req.user.role?.permissions?.map((p: any) => p.name) || [],
       }

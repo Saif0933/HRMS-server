@@ -9,6 +9,11 @@ export interface CloudinaryUploadResult {
   bytes: number;
 }
 
+export const getCloudinaryFolderPath = (subFolder?: string): string => {
+  const baseFolder = env.cloudinary.folder || "hrms";
+  return subFolder ? `${baseFolder}/${subFolder}` : baseFolder;
+};
+
 /**
  * Uploads a file buffer (from Multer memory storage) directly to Cloudinary using streams.
  * @param fileBuffer Buffer containing the image file binary
@@ -16,12 +21,13 @@ export interface CloudinaryUploadResult {
  */
 export const uploadBufferToCloudinary = (
   fileBuffer: Buffer,
-  folderName: string = env.cloudinary.folder || "hrms_uploads"
+  folderName: string = "avatars"
 ): Promise<CloudinaryUploadResult> => {
+  const fullFolderPath = getCloudinaryFolderPath(folderName);
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: folderName,
+        folder: fullFolderPath,
         resource_type: "auto",
       },
       (error, result) => {
@@ -49,10 +55,11 @@ export const uploadBufferToCloudinary = (
  */
 export const uploadDataUriToCloudinary = async (
   dataUri: string,
-  folderName: string = env.cloudinary.folder || "hrms_uploads"
+  folderName: string = "avatars"
 ): Promise<CloudinaryUploadResult> => {
+  const fullFolderPath = getCloudinaryFolderPath(folderName);
   const result = await cloudinary.uploader.upload(dataUri, {
-    folder: folderName,
+    folder: fullFolderPath,
     resource_type: "auto",
   });
 
