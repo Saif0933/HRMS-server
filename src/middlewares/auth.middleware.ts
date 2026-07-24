@@ -56,6 +56,17 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
     const decoded = verifyToken(token, jwtSecret);
     console.log("[Auth Middleware] Token verified successfully. Decoded payload:", decoded);
 
+    // Check if platform admin token (contains email and role PLATFORM_ADMIN or SUPER_ADMIN)
+    if (decoded.role === "SUPER_ADMIN" || decoded.role === "PLATFORM_ADMIN" || (!decoded.phoneNumber && decoded.email && decoded.id)) {
+      req.user = {
+        id: decoded.id,
+        email: decoded.email,
+        role: { name: decoded.role || "SUPER_ADMIN" },
+        isPlatformAdmin: true,
+      };
+      return next();
+    }
+
     if (!decoded.phoneNumber) {
       console.warn("[Auth Middleware] Token does not contain a phone number.");
       return next(new ErrorResponse("Not authorized to access this route", 401));

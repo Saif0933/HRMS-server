@@ -34,7 +34,10 @@ app.use(cors({
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ limit: "20mb", extended: true }));
 
+import platformRoutes from "./module/platform/routes/platform.routes.ts";
+
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/platform", platformRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/departments", departmentRoutes);
 app.use("/api/v1/employees", employeeRoutes);

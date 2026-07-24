@@ -108,6 +108,23 @@ export async function syncDatabase() {
       console.log("[DB Sync] Table 'users' and unique indexes created successfully!");
     }
 
+    // 4.5. Create platform_admins table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "platform_admins" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "email" TEXT NOT NULL,
+        "password" TEXT NOT NULL,
+        "role" TEXT NOT NULL DEFAULT 'PLATFORM_ADMIN',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "platform_admins_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "platform_admins_email_key" ON "platform_admins"("email");
+    `);
+
     // 5. Add "roleId" column to "users" safely (handling both lowercase and camelCase scenarios)
     const userRoleColumnCheck = await prisma.$queryRawUnsafe<any[]>(`
       SELECT column_name 
