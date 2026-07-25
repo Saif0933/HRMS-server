@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { protect, restrictTo } from "../../../middlewares/auth.middleware.ts";
 import {
-  assignRoleToUser,
-  createPermission,
-  createRole,
-  deleteRole,
-  getPermissions,
-  getRoles,
-  updateRole,
+    assignRoleToUser,
+    createPermission,
+    createRole,
+    deleteRole,
+    getPermissions,
+    getRoles,
+    updateRole,
 } from "../controllers/role.controller.ts";
 
 const router = Router();

@@ -2,6 +2,7 @@ import type { NextFunction, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
 import { statusCode } from "../../../types/types.ts";
 import { SuccessResponse } from "../../../utils/response.util.ts";
+import { prisma } from "../../../db/prisma.ts";
 import type { AuthenticatedRequest } from "../../user/controllers/auth.controller.ts";
 import { OrganizationService } from "../services/organization.service.ts";
 import {
@@ -89,6 +90,28 @@ export const createOrganization = asyncHandler(
     if (!parsed.success) return next(parsed.error);
 
     const org = await OrganizationService.create(parsed.data);
+
+    // Auto-create active membership for the creating user if logged in
+    if (req.user && req.user.id) {
+      try {
+        const existingMembership = await prisma.membership.findFirst({
+          where: { userId: req.user.id, organizationId: org.id }
+        });
+        if (!existingMembership) {
+          await prisma.membership.create({
+            data: {
+              userId: req.user.id,
+              organizationId: org.id,
+              status: "ACTIVE",
+              roleId: req.user.roleId || null
+            }
+          });
+        }
+      } catch (err: any) {
+        console.warn(`[Organization Controller] Auto-membership link warning:`, err.message || err);
+      }
+    }
+
     return SuccessResponse(res, "Organization created successfully", { organization: org }, statusCode.Created);
   }
 );

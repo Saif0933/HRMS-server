@@ -49,43 +49,48 @@ export class OrganizationRepository {
     const plainPassword = password || "Admin@123";
     const hashedPassword = hashPassword(plainPassword);
 
-    // 1. Check if user already exists by phone or email
-    let user = null;
-    if (orgData.mobileNumber || orgData.email) {
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            orgData.mobileNumber ? { phone: orgData.mobileNumber } : undefined,
-            orgData.email ? { email: orgData.email } : undefined,
-          ].filter(Boolean) as any
-        }
+    // 1. Fetch or create SUPER_ADMIN role with all permissions connected
+    const allPermissions = await prisma.permission.findMany({ select: { id: true } });
+
+    let superAdminRole = await prisma.role.findFirst({
+      where: { name: "SUPER_ADMIN" }
+    });
+
+    if (!superAdminRole) {
+      superAdminRole = await prisma.role.create({
+        data: {
+          id: "role_super_admin",
+          name: "SUPER_ADMIN",
+          description: "Full system control with all permissions",
+          isSystem: true,
+          permissions: {
+            connect: allPermissions.map((p) => ({ id: p.id })),
+          },
+        },
+      });
+    } else {
+      // Ensure all permissions are connected to SUPER_ADMIN role
+      await prisma.role.update({
+        where: { id: superAdminRole.id },
+        data: {
+          permissions: {
+            set: allPermissions.map((p) => ({ id: p.id })),
+          },
+        },
       });
     }
 
-    // 2. Create the user if they don't exist
-    if (!user) {
-      const superAdminRole = await prisma.role.findFirst({
-        where: { name: "SUPER_ADMIN" }
-      });
-      user = await prisma.user.create({
-        data: {
-          name: `Admin - ${orgData.name}`,
-          phone: orgData.mobileNumber || null,
-          email: orgData.email || null,
-          password: hashedPassword,
-          roleId: superAdminRole?.id || "role_super_admin",
-        }
-      });
-      console.log(`[Onboarding] Created admin user ${user.id} for organization ${orgData.name}`);
-    } else {
-      // If user exists, update their password if not already set
-      if (!user.password) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { password: hashedPassword }
-        });
+    // 2. Create a separate dedicated Admin User for this organization
+    const user = await prisma.user.create({
+      data: {
+        name: `Admin - ${orgData.name}`,
+        phone: orgData.mobileNumber || null,
+        email: orgData.email || null,
+        password: hashedPassword,
+        roleId: superAdminRole.id,
       }
-    }
+    });
+    console.log(`[Onboarding] Created dedicated admin user ${user.id} with SUPER_ADMIN permissions for organization ${orgData.name}`);
 
     // 3. Create the organization (without userId, linked via membership table instead)
     const organization = await prisma.organization.create({
@@ -96,15 +101,16 @@ export class OrganizationRepository {
       include: { address: true },
     });
 
-    // 4. Create a membership record for this user in the organization
+    // 4. Create a membership record for this user in the organization with SUPER_ADMIN role
     await prisma.membership.create({
       data: {
         userId: user.id,
         organizationId: organization.id,
         status: "ACTIVE",
-        roleId: user.roleId || undefined
+        roleId: superAdminRole.id,
       } as any
     });
+
 
     return organization;
   }

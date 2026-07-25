@@ -56,19 +56,19 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
     const decoded = verifyToken(token, jwtSecret);
     console.log("[Auth Middleware] Token verified successfully. Decoded payload:", decoded);
 
-    // Check if platform admin token (contains email and role PLATFORM_ADMIN or SUPER_ADMIN)
-    if (decoded.role === "SUPER_ADMIN" || decoded.role === "PLATFORM_ADMIN" || (!decoded.phoneNumber && decoded.email && decoded.id)) {
+    // Check if explicit platform admin token (contains role PLATFORM_ADMIN or isPlatformAdmin flag)
+    if (decoded.role === "PLATFORM_ADMIN" || decoded.isPlatformAdmin) {
       req.user = {
         id: decoded.id,
         email: decoded.email,
-        role: { name: decoded.role || "SUPER_ADMIN" },
+        role: { name: decoded.role || "PLATFORM_ADMIN" },
         isPlatformAdmin: true,
       };
       return next();
     }
 
-    if (!decoded.phoneNumber) {
-      console.warn("[Auth Middleware] Token does not contain a phone number.");
+    if (!decoded.phoneNumber && !decoded.id) {
+      console.warn("[Auth Middleware] Token does not contain an id or phone number.");
       return next(new ErrorResponse("Not authorized to access this route", 401));
     }
 
@@ -78,6 +78,9 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
       user = await prisma.user.findUnique({
         where: { id: decoded.id },
         include: { 
+          memberships: {
+            include: { organizations: true }
+          },
           role: {
             include: {
               permissions: true
@@ -91,6 +94,9 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
       user = await prisma.user.findFirst({
         where: { phone: decoded.phoneNumber },
         include: { 
+          memberships: {
+            include: { organizations: true }
+          },
           role: {
             include: {
               permissions: true
@@ -105,8 +111,13 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
       return next(new ErrorResponse("User not found", 404));
     }
 
-    // Attach user to the request context
-    req.user = user;
+    // Attach user and organizationId to the request context
+    const primaryOrganizationId = user.memberships?.[0]?.organizationId;
+
+    req.user = {
+      ...user,
+      organizationId: primaryOrganizationId,
+    };
     next();
   } catch (error: any) {
     console.error("JWT Verification failed:", error.message || error);
@@ -121,6 +132,10 @@ export const restrictTo = (...roles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new ErrorResponse("Not authorized to access this route", 401));
+    }
+
+    if (req.user.role?.name === "SUPER_ADMIN" || req.user.isPlatformAdmin) {
+      return next();
     }
 
     if (!req.user.role || !roles.includes(req.user.role.name)) {

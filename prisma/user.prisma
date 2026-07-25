@@ -10,7 +10,7 @@ model User {
   managedDepartments Department[]   @relation("DepartmentManager")
   employee           Employee?
   approvedLeaves     LeaveRequest[] @relation("LeaveApprover")
-  membership         Membership?
+  memberships        Membership[]
   role               Role?          @relation(fields: [roleId], references: [id])
 
   @@map("users")

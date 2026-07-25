@@ -27,9 +27,9 @@ export const errorMiddleware = (
   if ("code" in err && (err as any).code === "P2002") {
     const target = (err as any).meta?.target;
     err.statusCode = statusCode.Conflict;
-    err.message = target 
+    err.message = target && (Array.isArray(target) ? target.length > 0 : true)
       ? `A record with this ${Array.isArray(target) ? target.join(', ') : target} already exists` 
-      : "Conflict: Department name or code already exists";
+      : "Conflict: Record with unique constraint already exists";
   }
 
    // ✅ Handle Zod error

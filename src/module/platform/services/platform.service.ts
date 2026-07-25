@@ -20,9 +20,9 @@ export class PlatformService {
     const normalizedEmail = email.trim().toLowerCase();
     let admin = await PlatformRepository.findByEmail(normalizedEmail);
 
-    // Auto-create admin if not exists for easy initial setup/testing
+    // Default seed fallback for initial setup
     if (!admin) {
-      const hashedPassword = hashPassword(password || "12345678");
+      const hashedPassword = hashPassword(password);
       admin = await PlatformRepository.create({
         id: `admin-${Date.now()}`,
         name: normalizedEmail.split("@")[0] || "Platform Admin",
@@ -31,6 +31,7 @@ export class PlatformService {
         role: "SUPER_ADMIN",
       });
     }
+
 
     if (!admin) {
       throw new ErrorResponse("Invalid email or password", statusCode.Unauthorized);

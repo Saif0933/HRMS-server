@@ -1,24 +1,25 @@
-import type { Request, Response, NextFunction } from "express";
-import { EmployeeService } from "../services/employee.service.ts";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.ts";
+import type { NextFunction, Request, Response } from "express";
+import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
 import { statusCode } from "../../../types/types.ts";
+import { ErrorResponse, SuccessResponse } from "../../../utils/response.util.ts";
+import { EmployeeService } from "../services/employee.service.ts";
 import {
-  createEmployeeSchema,
-  updateEmployeeSchema,
-  updateSalarySchema,
-  updatePersonalSchema,
   addFamilyMemberSchema,
+  createEmployeeSchema,
   saveEmployeeExitSchema,
+  updateEmployeeSchema,
+  updatePersonalSchema,
+  updateSalarySchema,
 } from "../validators/employee.validator.ts";
 
-export const createEmployee = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createEmployee = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createEmployeeSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const employee = await EmployeeService.createEmployee(parsed.data);
+  const employee = await EmployeeService.createEmployee(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -28,10 +29,11 @@ export const createEmployee = asyncHandler(async (req: Request, res: Response, n
   );
 });
 
-export const getEmployees = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getEmployees = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const { departmentId, managerId, status, search } = req.query;
 
   const employees = await EmployeeService.getEmployees({
+    organizationId: req.user?.organizationId,
     departmentId: departmentId as string,
     managerId: managerId as string,
     status: status as any,

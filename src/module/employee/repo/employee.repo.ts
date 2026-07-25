@@ -48,12 +48,30 @@ export class EmployeeRepository {
   }
 
   static async findAll(filters: {
+    organizationId?: string;
     departmentId?: string;
     managerId?: string;
     status?: any;
     search?: string;
   }) {
     const whereClause: any = {};
+
+    if (filters.organizationId) {
+      whereClause.OR = [
+        {
+          user: {
+            memberships: {
+              some: {
+                organizationId: filters.organizationId,
+              },
+            },
+          },
+        },
+        {
+          userId: null,
+        },
+      ];
+    }
 
     if (filters.departmentId) {
       whereClause.departmentId = filters.departmentId;
@@ -205,7 +223,7 @@ export class EmployeeRepository {
         console.warn(`[Employee Repo] employee_exits table does not exist in DB yet.`);
         return null;
       }
-      throw error;
     }
   }
 }
+

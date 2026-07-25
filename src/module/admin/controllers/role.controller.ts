@@ -1,13 +1,13 @@
-import type { Request, Response, NextFunction } from "express";
-import { RoleService } from "../services/role.service.ts";
-import { SuccessResponse } from "../../../utils/response.util.ts";
+import type { NextFunction, Request, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
 import { statusCode } from "../../../types/types.ts";
+import { SuccessResponse } from "../../../utils/response.util.ts";
+import { RoleService } from "../services/role.service.ts";
 import {
-  createPermissionSchema,
-  createRoleSchema,
-  updateRoleSchema,
-  assignRoleSchema,
+    assignRoleSchema,
+    createPermissionSchema,
+    createRoleSchema,
+    updateRoleSchema,
 } from "../validators/role.validator.ts";
 
 /**

@@ -53,7 +53,7 @@ model OrganizationAddress {
 
 model Membership {
   id             String           @id @default(cuid())
-  userId         String           @unique
+  userId         String
   organizationId String
   status         MembershipStatus @default(PENDING)
   joinedAt       DateTime         @default(now())

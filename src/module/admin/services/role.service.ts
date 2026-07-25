@@ -145,3 +145,4 @@ export class RoleService {
     return RoleRepository.updateUserRoleId(user.id, roleId);
   }
 }
+

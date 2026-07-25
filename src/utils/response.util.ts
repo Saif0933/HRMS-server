@@ -25,7 +25,7 @@ export class ErrorResponse extends Error {
 
  export function normalizeBigInt(obj: any): any {
     if (obj instanceof Date) {
-      return obj.toISOString(); // ✅ serialize Date properly
+      return isNaN(obj.getTime()) ? null : obj.toISOString(); // ✅ serialize Date properly safely
     } else if (typeof obj === "bigint") {
       return obj.toString(); // ✅ BigInt -> string
     } else if (Array.isArray(obj)) {

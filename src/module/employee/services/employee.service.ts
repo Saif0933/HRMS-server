@@ -1,15 +1,15 @@
 import crypto from "crypto";
-import { EmployeeRepository } from "../repo/employee.repo.ts";
-import { ErrorResponse } from "../../../utils/response.util.ts";
-import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
+import { statusCode } from "../../../types/types.ts";
+import { ErrorResponse } from "../../../utils/response.util.ts";
+import { EmployeeRepository } from "../repo/employee.repo.ts";
 
 function generateEmployeeId() {
   return `EMP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
 export class EmployeeService {
-  static async createEmployee(data: any) {
+  static async createEmployee(data: any, organizationId?: string) {
     // 1. Resolve ID (ensure unique)
     let employeeId = data.id || data.employeeId;
     if (employeeId) {
@@ -106,14 +106,19 @@ export class EmployeeService {
       }
     }
 
-    // Hash password if provided
-    if (data.password) {
-      data.password = crypto.createHash("sha256").update(data.password).digest("hex");
-    }
+    // Handle password hashing consistently (once)
+    const rawPassword = data.password || "Password@123";
+    const hashedPassword = crypto.createHash("sha256").update(rawPassword).digest("hex");
+    data.password = hashedPassword;
 
-    // Sync or create associated User account for login authentication
-    if (data.email && data.password) {
+    // Sync or create associated User account for login authentication & organization binding
+    if (data.email) {
       try {
+        // Fetch default EMPLOYEE role if present
+        const empRole = await prisma.role.findFirst({
+          where: { name: "EMPLOYEE" }
+        });
+
         const searchConditions: any[] = [];
         if (data.email) searchConditions.push({ email: data.email });
         if (data.phone) searchConditions.push({ phone: data.phone });
@@ -128,22 +133,41 @@ export class EmployeeService {
               name: data.name,
               email: data.email,
               phone: data.phone || null,
-              password: data.password,
+              password: hashedPassword,
+              roleId: empRole?.id || null,
             }
           });
         } else {
           existingUser = await prisma.user.update({
             where: { id: existingUser.id },
             data: {
-              password: data.password,
+              password: hashedPassword,
               name: existingUser.name || data.name,
               email: existingUser.email || data.email,
+              roleId: existingUser.roleId || empRole?.id || undefined,
             }
           });
         }
         data.userId = existingUser.id;
+
+        // Ensure user has membership in the logged-in organization so they show up under organization filters
+        if (organizationId) {
+          const existingMembership = await prisma.membership.findFirst({
+            where: { userId: existingUser.id, organizationId }
+          });
+          if (!existingMembership) {
+            await prisma.membership.create({
+              data: {
+                userId: existingUser.id,
+                organizationId,
+                status: "ACTIVE",
+                roleId: empRole?.id || null,
+              }
+            });
+          }
+        }
       } catch (userErr: any) {
-        console.warn("[Employee Service] Could not sync User table during employee creation:", userErr.message);
+        console.warn("[Employee Service] Could not sync User table/membership during employee creation:", userErr.message);
       }
     }
 
@@ -157,6 +181,7 @@ export class EmployeeService {
   }
 
   static async getEmployees(filters: {
+    organizationId?: string;
     departmentId?: string;
     managerId?: string;
     status?: any;

@@ -43,21 +43,39 @@ const setAuthCookie = (res: Response, token: string) => {
  * Helper to link or create employee record for the authenticated user based on their phone number
  */
 const linkOrCreateEmployeeForUser = async (user: any) => {
-  // 1. Check if employee record is already linked to this userId
-  let employee = await prisma.employee.findUnique({
-    where: { userId: user.id }
-  });
+  let employee = null;
+  try {
+    employee = await prisma.employee.findUnique({
+      where: { userId: user.id }
+    });
+  } catch (err: any) {
+    console.warn(`[Auth Controller] Error finding employee by userId:`, err.message || err);
+  }
+
 
   if (!employee) {
-    // 2. Try to find employee by matching phone number suffixes
-    const cleanUserPhone = user.phone ? user.phone.replace(/\D/g, '') : '';
-    if (cleanUserPhone) {
-      const allEmployees = await prisma.employee.findMany();
-      employee = allEmployees.find(emp => {
-        if (!emp.phone) return false;
-        const cleanEmpPhone = emp.phone.replace(/\D/g, '');
-        return cleanUserPhone.endsWith(cleanEmpPhone) || cleanEmpPhone.endsWith(cleanUserPhone);
-      }) || null;
+    // If the user is an Organization Admin (SUPER_ADMIN role), do NOT auto-create an Employee record.
+    if (user.role?.name === "SUPER_ADMIN" || user.roleId === "role_super_admin") {
+      return null;
+    }
+
+    // 2. Try to find employee by matching email or phone number
+    if (!employee && user.email) {
+      employee = await prisma.employee.findFirst({
+        where: { email: user.email }
+      });
+    }
+
+    if (!employee) {
+      const cleanUserPhone = user.phone ? user.phone.replace(/\D/g, '') : '';
+      if (cleanUserPhone) {
+        const allEmployees = await prisma.employee.findMany();
+        employee = allEmployees.find(emp => {
+          if (!emp.phone) return false;
+          const cleanEmpPhone = emp.phone.replace(/\D/g, '');
+          return cleanUserPhone.endsWith(cleanEmpPhone) || cleanEmpPhone.endsWith(cleanUserPhone);
+        }) || null;
+      }
     }
 
     if (employee) {
@@ -256,8 +274,24 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
     isNewUser = true;
   }
 
+  // Check if user belongs to an onboarded organization in the database
+  const membership = await prisma.membership.findFirst({
+    where: { userId: user.id },
+    include: { organizations: true },
+  });
+
+  if (!membership || !membership.organizations) {
+    return next(
+      new ErrorResponse(
+        "Organization does not exist in the database. Please onboard your organization first.",
+        statusCode.Forbidden
+      )
+    );
+  }
+
   // Link or create the employee record for this user
   const employee = await linkOrCreateEmployeeForUser(user);
+
 
   // Sign JWT and login
   const jwtSecret = env.jwt.secret || "123456";
@@ -274,11 +308,11 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
     {
       user: {
         id: user.id,
-        employeeId: employee.id,
-        name: employee.name || user.name,
-        email: employee.email || user.email,
+        employeeId: employee?.id || null,
+        name: employee?.name || user.name,
+        email: employee?.email || user.email,
         phone: user.phone,
-        avatar: employee.avatar || null,
+        avatar: employee?.avatar || null,
         role: user.role?.name || "EMPLOYEE",
         permissions: user.role?.permissions?.map((p: any) => p.name) || [],
       },
@@ -314,26 +348,13 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
     return next(new ErrorResponse(`${field} is already registered`, statusCode.Conflict));
   }
 
-  // Check if this is the first user in the database to auto-assign SUPER_ADMIN
-  const userCount = await prisma.user.count();
-  let roleId: string | undefined;
-  if (userCount === 0) {
-    const superAdminRole = await prisma.role.findFirst({
-      where: { name: "SUPER_ADMIN" },
-    });
-    if (superAdminRole) {
-      roleId = superAdminRole.id;
-    }
-  }
-
-  // Create new user with hashed password
+  // Create new user with hashed password (roles/permissions are assigned through organization membership)
   const newUser = await prisma.user.create({
     data: {
       name,
       email,
       phone,
       password: hashPassword(password),
-      roleId,
     },
     include: { 
       role: {
@@ -362,9 +383,9 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
     {
       user: {
         id: newUser.id,
-        employeeId: employee.id,
-        name: employee.name || newUser.name,
-        email: employee.email || newUser.email,
+        employeeId: employee?.id || null,
+        name: employee?.name || newUser.name,
+        email: employee?.email || newUser.email,
         phone: newUser.phone,
         role: newUser.role?.name || "EMPLOYEE",
         permissions: newUser.role?.permissions?.map((p: any) => p.name) || [],
@@ -407,9 +428,20 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     : null;
 
   let passwordMatches = false;
+  const singleHash = hashPassword(password);
+  const doubleHash = hashPassword(singleHash);
 
-  if (user && user.password && comparePassword(password, user.password)) {
-    passwordMatches = true;
+  if (user && user.password) {
+    if (user.password === singleHash || user.password === doubleHash || user.password === password) {
+      passwordMatches = true;
+      // If legacy doubleHash or plaintext matched, automatically update User password to singleHash
+      if (user.password !== singleHash) {
+        prisma.user.update({
+          where: { id: user.id },
+          data: { password: singleHash }
+        }).catch(err => console.warn("[Auth] Failed to update user password hash:", err));
+      }
+    }
   }
 
   // 2. If user missing or password mismatch on User table, fallback to Employee table
@@ -425,8 +457,10 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
       : null;
 
     if (employee && employee.password) {
-      const hashedPass = hashPassword(password);
-      const isEmpPassMatch = employee.password === hashedPass || employee.password === password;
+      const isEmpPassMatch = 
+        employee.password === singleHash || 
+        employee.password === doubleHash || 
+        employee.password === password;
 
       if (isEmpPassMatch) {
         // Link or create user account matching this employee record
@@ -467,7 +501,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
               name: employee.name,
               email: employee.email,
               phone: employee.phone,
-              password: hashedPass,
+              password: singleHash,
             },
             include: { 
               role: {
@@ -480,7 +514,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
         } else {
           user = await prisma.user.update({
             where: { id: user.id },
-            data: { password: hashedPass },
+            data: { password: singleHash },
             include: { 
               role: {
                 include: {
@@ -507,8 +541,24 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     return next(new ErrorResponse("Invalid credentials", statusCode.Unauthorized));
   }
 
+  // Check if user belongs to an onboarded organization in the database
+  const membership = await prisma.membership.findFirst({
+    where: { userId: user.id },
+    include: { organizations: true },
+  });
+
+  if (!membership || !membership.organizations) {
+    return next(
+      new ErrorResponse(
+        "Organization does not exist in the database. Please onboard your organization first.",
+        statusCode.Forbidden
+      )
+    );
+  }
+
   // Link or create the employee record for this user
   const employee = await linkOrCreateEmployeeForUser(user);
+
 
   // Sign JWT token
   const jwtSecret = env.jwt.secret || "123456";
@@ -525,11 +575,11 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     {
       user: {
         id: user.id,
-        employeeId: employee.id,
-        name: employee.name || user.name,
-        email: employee.email || user.email,
+        employeeId: employee?.id || null,
+        name: employee?.name || user.name,
+        email: employee?.email || user.email,
         phone: user.phone,
-        avatar: employee.avatar || null,
+        avatar: employee?.avatar || null,
         role: user.role?.name || "EMPLOYEE",
         permissions: user.role?.permissions?.map((p: any) => p.name) || [],
       },

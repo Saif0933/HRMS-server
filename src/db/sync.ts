@@ -24,6 +24,28 @@ export async function syncDatabase() {
       CREATE UNIQUE INDEX IF NOT EXISTS "permissions_name_key" ON "permissions"("name");
     `);
 
+    // Create platform_companies table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "platform_companies" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "industry" TEXT NOT NULL,
+        "employeeCount" INTEGER NOT NULL DEFAULT 0,
+        "licenseTier" TEXT NOT NULL DEFAULT 'Starter',
+        "status" TEXT NOT NULL DEFAULT 'Active',
+        "contactEmail" TEXT NOT NULL,
+        "onboardedDate" TEXT NOT NULL,
+        "iconName" TEXT DEFAULT 'LightningIcon',
+        "iconColor" TEXT DEFAULT '#4f46e5',
+        "iconBg" TEXT DEFAULT '#ede9fe',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "platform_companies_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+
+
     // 2. Create roles table and unique index
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "roles" (
@@ -199,12 +221,16 @@ export async function syncDatabase() {
       );
     `);
     
-    // Add password column safely if employees table already exists
+    // Add missing columns safely if employees table already exists
     try {
       await prisma.$executeRawUnsafe(`ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "password" TEXT;`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "fatherName" TEXT;`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "permanentAddress" TEXT;`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "languagesSpoken" TEXT;`);
     } catch (colErr: any) {
-      // Ignore error if column already exists
+      // Ignore error if columns already exist
     }
+
     await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "employees_email_key" ON "employees"("email");
     `);
@@ -1325,10 +1351,34 @@ export async function syncDatabase() {
       console.log("[DB Sync] Seeded default audit logs successfully!");
     }
 
-    // 8. Auto-assign ALL role-less users to SUPER_ADMIN to ensure local testing works seamlessly
-    const superAdminRoleObj = await prisma.role.findFirst({
+    // 8. Auto-assign ALL role-less users to SUPER_ADMIN and ensure SUPER_ADMIN has ALL permissions
+    const allPermsList = await prisma.permission.findMany({ select: { id: true } });
+    let superAdminRoleObj = await prisma.role.findFirst({
       where: { name: "SUPER_ADMIN" },
     });
+
+    if (!superAdminRoleObj) {
+      superAdminRoleObj = await prisma.role.create({
+        data: {
+          id: "role_super_admin",
+          name: "SUPER_ADMIN",
+          description: "Full system control with all permissions",
+          isSystem: true,
+          permissions: {
+            connect: allPermsList.map((p) => ({ id: p.id })),
+          },
+        },
+      });
+    } else {
+      await prisma.role.update({
+        where: { id: superAdminRoleObj.id },
+        data: {
+          permissions: {
+            set: allPermsList.map((p) => ({ id: p.id })),
+          },
+        },
+      });
+    }
 
     if (superAdminRoleObj) {
       const usersWithoutRole = await prisma.user.findMany({
@@ -1343,49 +1393,57 @@ export async function syncDatabase() {
         console.log(`[DB Sync] Auto-assigned ${usersWithoutRole.length} user(s) without roles to SUPER_ADMIN role.`);
       }
 
-      // Ensure test user with phone "6200065370" is seeded and promoted to SUPER_ADMIN
-      let testUser = await prisma.user.findFirst({
-        where: { phone: "6200065370" }
+      // Ensure info@symbosys.com user is seeded and promoted to SUPER_ADMIN with all permissions
+      let infoUser = await prisma.user.findFirst({
+        where: { OR: [{ email: "info@symbosys.com" }, { phone: "6200065370" }] }
       });
-      if (!testUser) {
-        testUser = await prisma.user.create({
+      if (!infoUser) {
+        infoUser = await prisma.user.create({
           data: {
+            email: "info@symbosys.com",
             phone: "6200065370",
-            name: "Test Admin User",
-            email: "testadmin@symbosys.com",
+            name: "Symbosys Admin",
             roleId: superAdminRoleObj.id,
           }
         });
-        console.log("[DB Sync] Created test user 6200065370 as SUPER_ADMIN.");
-      } else if (testUser.roleId !== superAdminRoleObj.id) {
+        console.log("[DB Sync] Created user info@symbosys.com as SUPER_ADMIN.");
+      } else if (infoUser.roleId !== superAdminRoleObj.id) {
         await prisma.user.update({
-          where: { id: testUser.id },
+          where: { id: infoUser.id },
           data: { roleId: superAdminRoleObj.id }
         });
-        console.log("[DB Sync] Successfully promoted test user 6200065370 to SUPER_ADMIN.");
+        console.log("[DB Sync] Successfully promoted info@symbosys.com to SUPER_ADMIN.");
       }
 
-      // Ensure test employee is also created and linked
-      let testEmployee = await prisma.employee.findUnique({
-        where: { userId: testUser.id }
+      // Ensure employee record is also created and linked for info@symbosys.com
+      let infoEmployee = await prisma.employee.findFirst({
+        where: { OR: [{ userId: infoUser.id }, { email: "info@symbosys.com" }] }
       });
-      if (!testEmployee) {
+      if (!infoEmployee) {
         const empCount = await prisma.employee.count();
         const empId = `EMP${String(empCount + 1).padStart(3, '0')}`;
         await prisma.employee.create({
           data: {
             id: empId,
-            name: testUser.name || "Test Admin User",
-            email: testUser.email || "testadmin@symbosys.com",
-            phone: testUser.phone,
+            name: infoUser.name || "Symbosys Admin",
+            email: infoUser.email || "info@symbosys.com",
+            phone: infoUser.phone,
             status: "ACTIVE",
             joiningDate: new Date(),
-            userId: testUser.id,
+            userId: infoUser.id,
           }
         });
-        console.log(`[DB Sync] Created and linked test employee ${empId} for test user 6200065370.`);
+        console.log(`[DB Sync] Created and linked employee ${empId} for info@symbosys.com.`);
+      } else if (!infoEmployee.userId) {
+        await prisma.employee.update({
+          where: { id: infoEmployee.id },
+          data: { userId: infoUser.id }
+        });
       }
+
+
     }
+
 
     // Seed/Validate permissions for CRUD operations across modules
     await seedPermissions();
