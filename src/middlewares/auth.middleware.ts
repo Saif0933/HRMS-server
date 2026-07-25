@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import env from "../config/env.config";
 import { prisma } from "../db/prisma.ts";
+import { PlatformRepository } from "../module/platform/repo/platform.repo.ts";
 import { verifyToken } from "../utils/jwt.util";
 import { ErrorResponse } from "../utils/response.util";
 import { asyncHandler } from "./error.middleware";
@@ -57,7 +58,7 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
     console.log("[Auth Middleware] Token verified successfully. Decoded payload:", decoded);
 
     // Check if explicit platform admin token (contains role PLATFORM_ADMIN or isPlatformAdmin flag)
-    if (decoded.role === "PLATFORM_ADMIN" || decoded.isPlatformAdmin) {
+    if (decoded.isPlatformAdmin || decoded.role === "PLATFORM_ADMIN") {
       req.user = {
         id: decoded.id,
         email: decoded.email,
@@ -107,6 +108,20 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
     }
 
     if (!user) {
+      // Fallback check: verify if the token's decoded.id corresponds to a Platform Admin in platform_admins table
+      if (decoded.id) {
+        const platformAdmin = await PlatformRepository.findById(decoded.id);
+        if (platformAdmin) {
+          req.user = {
+            id: platformAdmin.id,
+            email: platformAdmin.email,
+            role: { name: platformAdmin.role || "SUPER_ADMIN" },
+            isPlatformAdmin: true,
+          };
+          return next();
+        }
+      }
+
       console.warn(`[Auth Middleware] User with ID ${decoded.id || 'N/A'} or phone ${decoded.phoneNumber || 'N/A'} not found in database.`);
       return next(new ErrorResponse("User not found", 404));
     }

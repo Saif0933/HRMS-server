@@ -44,7 +44,7 @@ export class PlatformService {
 
     const jwtSecret = env.jwt.secret || "123456";
     const token = signToken(
-      { id: admin.id, email: admin.email, role: admin.role || "PLATFORM_ADMIN" },
+      { id: admin.id, email: admin.email, role: admin.role || "SUPER_ADMIN", isPlatformAdmin: true },
       jwtSecret
     );
 
