@@ -19,8 +19,8 @@ import letterRoutes from "./module/letter/routes/letter.routes.ts";
 import helpdeskRoutes from "./module/helpdesk/routes/helpdesk.routes.ts";
 import attendanceRoutes from "./module/attendance/routes/attendance.routes.ts";
 import dashboardRoutes from "./module/dashboard/routes/dashboard.routes.ts";
+import subscriptionRoutes from "./module/subscription/routes/subscription.routes.ts";
 import { syncDatabase } from "./db/sync.ts";
-
 
 import cors from "cors";
 
@@ -55,6 +55,7 @@ app.use("/api/v1/letters", letterRoutes);
 app.use("/api/v1/helpdesk", helpdeskRoutes);
 app.use("/api/v1/attendance", attendanceRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
+app.use("/api/v1/subscriptions", subscriptionRoutes);
 
 
 

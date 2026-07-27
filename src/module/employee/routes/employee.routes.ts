@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect, restrictTo } from "../../../middlewares/auth.middleware.ts";
+import { protect, hasPermission } from "../../../middlewares/auth.middleware.ts";
 import {
   createEmployee,
   getEmployees,
@@ -23,17 +23,17 @@ const router = Router();
 router.use(protect);
 
 // Standard Employee CRUD routes
-router.get("/", getEmployees);
-router.get("/:id", getEmployeeById);
-router.post("/", restrictTo("SUPER_ADMIN", "HR_ADMIN"), createEmployee);
-router.put("/:id", restrictTo("SUPER_ADMIN", "HR_ADMIN"), updateEmployee);
-router.delete("/:id", restrictTo("SUPER_ADMIN", "HR_ADMIN"), deleteEmployee);
+router.get("/", hasPermission("VIEW_EMPLOYEE_DIRECTORY", "VIEW_EMPLOYEE_MASTER", "VIEW_EMPLOYEES"), getEmployees);
+router.get("/:id", hasPermission("VIEW_EMPLOYEE_DIRECTORY", "VIEW_EMPLOYEE_MASTER", "VIEW_EMPLOYEES"), getEmployeeById);
+router.post("/", hasPermission("CREATE_EMPLOYEES"), createEmployee);
+router.put("/:id", hasPermission("UPDATE_EMPLOYEE_MASTER", "UPDATE_EMPLOYEES"), updateEmployee);
+router.delete("/:id", hasPermission("DELETE_EMPLOYEES"), deleteEmployee);
 
-// Salary Details routes (viewing uses self-or-admin check; updating restricted to admins in controller)
+// Salary Details routes
 router.get("/:id/salary", getEmployeeSalary);
-router.put("/:id/salary", updateEmployeeSalary);
+router.put("/:id/salary", hasPermission("UPDATE_SALARY_STRUCTURE", "UPDATE_PAYROLL"), updateEmployeeSalary);
 
-// Personal Details routes (viewing/updating use self-or-admin checks in controller)
+// Personal Details routes
 router.get("/:id/personal", getEmployeePersonal);
 router.put("/:id/personal", updateEmployeePersonal);
 
@@ -43,8 +43,8 @@ router.post("/:id/family", addEmployeeFamilyMember);
 router.delete("/:id/family/:familyId", removeEmployeeFamilyMember);
 
 // Exit Management & F&F routes
-router.get("/:id/exit", getEmployeeExit);
-router.post("/:id/exit", saveEmployeeExit);
-router.put("/:id/exit", saveEmployeeExit);
+router.get("/:id/exit", hasPermission("VIEW_EXIT_SETTLEMENT", "VIEW_EMPLOYEES"), getEmployeeExit);
+router.post("/:id/exit", hasPermission("UPDATE_EXIT_SETTLEMENT", "UPDATE_EMPLOYEES"), saveEmployeeExit);
+router.put("/:id/exit", hasPermission("UPDATE_EXIT_SETTLEMENT", "UPDATE_EMPLOYEES"), saveEmployeeExit);
 
 export default router;

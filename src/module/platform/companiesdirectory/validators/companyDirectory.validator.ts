@@ -11,6 +11,11 @@ export const companyClientSchema = z.object({
   iconName: z.string().optional(),
   iconColor: z.string().optional(),
   iconBg: z.string().optional(),
+  // Organization admin credentials for onboarding
+  adminName: z.string().min(1, "Admin name is required").optional(),
+  adminEmail: z.string().email("Invalid admin email").optional(),
+  adminPhone: z.string().optional(),
+  adminPassword: z.string().min(6, "Admin password must be at least 6 characters").optional(),
 });
 
 export type CompanyClientInput = z.infer<typeof companyClientSchema>;

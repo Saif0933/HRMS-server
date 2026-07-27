@@ -40,9 +40,27 @@ const setAuthCookie = (res: Response, token: string) => {
 };
 
 /**
+ * Helper to get the user's active membership with org-scoped role and organizationId
+ */
+const getActiveMembership = async (userId: string) => {
+  const membership = await prisma.membership.findFirst({
+    where: { userId, status: "ACTIVE" },
+    include: {
+      organizations: true,
+      role: {
+        include: {
+          permissions: true,
+        },
+      },
+    },
+  });
+  return membership;
+};
+
+/**
  * Helper to link or create employee record for the authenticated user based on their phone number
  */
-const linkOrCreateEmployeeForUser = async (user: any) => {
+const linkOrCreateEmployeeForUser = async (user: any, organizationId?: string) => {
   let employee = null;
   try {
     employee = await prisma.employee.findUnique({
@@ -80,9 +98,13 @@ const linkOrCreateEmployeeForUser = async (user: any) => {
 
     if (employee) {
       // Link the existing onboarded employee to this user account
+      const updateData: any = { userId: user.id };
+      if (organizationId && !employee.organizationId) {
+        updateData.organizationId = organizationId;
+      }
       employee = await prisma.employee.update({
         where: { id: employee.id },
-        data: { userId: user.id }
+        data: updateData
       });
       console.log(`[Auth] Linked existing onboarded employee ${employee.id} to user ${user.id}`);
     } else {
@@ -101,9 +123,18 @@ const linkOrCreateEmployeeForUser = async (user: any) => {
           status: "ACTIVE",
           joiningDate: new Date(),
           userId: user.id,
+          organizationId: organizationId || null,
         }
       });
       console.log(`[Auth] Created brand new employee ${empId} for user ${user.id}`);
+    }
+  } else {
+    // Employee exists but may not have organizationId set
+    if (organizationId && !employee.organizationId) {
+      employee = await prisma.employee.update({
+        where: { id: employee.id },
+        data: { organizationId }
+      });
     }
   }
 
@@ -243,25 +274,12 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
 
   let isNewUser = false;
   if (!user) {
-    // Check if this is the first user in the database to auto-assign SUPER_ADMIN
-    const userCount = await prisma.user.count();
-    let roleId: string | undefined;
-    if (userCount === 0) {
-      const superAdminRole = await prisma.role.findFirst({
-        where: { name: "SUPER_ADMIN" },
-      });
-      if (superAdminRole) {
-        roleId = superAdminRole.id;
-      }
-    }
-
-    // First time login - auto-create user record
+    // First time login - auto-create user record (no role assignment — role comes from membership)
     user = await prisma.user.create({
       data: {
         phone,
         name: "", // Default empty name
         email: null as any,
-        roleId,
       },
       include: { 
         role: {
@@ -275,10 +293,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
   }
 
   // Check if user belongs to an onboarded organization in the database
-  const membership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-    include: { organizations: true },
-  });
+  const membership = await getActiveMembership(user.id);
 
   if (!membership || !membership.organizations) {
     return next(
@@ -289,14 +304,17 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
     );
   }
 
+  const organizationId = membership.organizationId;
+  // Use org-scoped role from membership
+  const orgRole = membership.role || user.role;
+
   // Link or create the employee record for this user
-  const employee = await linkOrCreateEmployeeForUser(user);
+  const employee = await linkOrCreateEmployeeForUser(user, organizationId);
 
-
-  // Sign JWT and login
+  // Sign JWT and login — include organizationId in payload
   const jwtSecret = env.jwt.secret || "123456";
   const token = signToken(
-    { id: user.id, phoneNumber: user.phone, email: user.email },
+    { id: user.id, phoneNumber: user.phone, email: user.email, organizationId },
     jwtSecret
   );
 
@@ -313,8 +331,9 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response, next: 
         email: employee?.email || user.email,
         phone: user.phone,
         avatar: employee?.avatar || null,
-        role: user.role?.name || "EMPLOYEE",
-        permissions: user.role?.permissions?.map((p: any) => p.name) || [],
+        role: orgRole?.name || "EMPLOYEE",
+        permissions: orgRole?.permissions?.map((p: any) => p.name) || [],
+        organizationId,
       },
       token,
       isRegistered: true,
@@ -365,13 +384,18 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
     },
   });
 
-  // Link or create the employee record for this user
-  const employee = await linkOrCreateEmployeeForUser(newUser);
+  // Check membership for org-scoped role
+  const membership = await getActiveMembership(newUser.id);
+  const organizationId = membership?.organizationId;
+  const orgRole = membership?.role || newUser.role;
 
-  // Sign JWT token
+  // Link or create the employee record for this user
+  const employee = await linkOrCreateEmployeeForUser(newUser, organizationId);
+
+  // Sign JWT token — include organizationId
   const jwtSecret = env.jwt.secret || "123456";
   const token = signToken(
-    { id: newUser.id, phoneNumber: newUser.phone, email: newUser.email },
+    { id: newUser.id, phoneNumber: newUser.phone, email: newUser.email, organizationId },
     jwtSecret
   );
 
@@ -387,8 +411,9 @@ export const register = asyncHandler(async (req: Request, res: Response, next: N
         name: employee?.name || newUser.name,
         email: employee?.email || newUser.email,
         phone: newUser.phone,
-        role: newUser.role?.name || "EMPLOYEE",
-        permissions: newUser.role?.permissions?.map((p: any) => p.name) || [],
+        role: orgRole?.name || "EMPLOYEE",
+        permissions: orgRole?.permissions?.map((p: any) => p.name) || [],
+        organizationId,
       },
       token,
     },
@@ -542,10 +567,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
   }
 
   // Check if user belongs to an onboarded organization in the database
-  const membership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-    include: { organizations: true },
-  });
+  const membership = await getActiveMembership(user.id);
 
   if (!membership || !membership.organizations) {
     return next(
@@ -556,14 +578,17 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
     );
   }
 
+  const organizationId = membership.organizationId;
+  // Use org-scoped role from membership
+  const orgRole = membership.role || user.role;
+
   // Link or create the employee record for this user
-  const employee = await linkOrCreateEmployeeForUser(user);
+  const employee = await linkOrCreateEmployeeForUser(user, organizationId);
 
-
-  // Sign JWT token
+  // Sign JWT token — include organizationId
   const jwtSecret = env.jwt.secret || "123456";
   const token = signToken(
-    { id: user.id, phoneNumber: user.phone, email: user.email },
+    { id: user.id, phoneNumber: user.phone, email: user.email, organizationId },
     jwtSecret
   );
 
@@ -580,8 +605,9 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
         email: employee?.email || user.email,
         phone: user.phone,
         avatar: employee?.avatar || null,
-        role: user.role?.name || "EMPLOYEE",
-        permissions: user.role?.permissions?.map((p: any) => p.name) || [],
+        role: orgRole?.name || "EMPLOYEE",
+        permissions: orgRole?.permissions?.map((p: any) => p.name) || [],
+        organizationId,
       },
       token,
     },
@@ -621,6 +647,9 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
 
   const avatarUrl = employee?.avatar || null;
 
+  // Get org-scoped role (already resolved in middleware)
+  const orgRole = req.user.role;
+
   return SuccessResponse(
     res,
     "Profile retrieved successfully",
@@ -633,8 +662,9 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
         phone: req.user.phone,
         avatar: avatarUrl,
         image: avatarUrl,
-        role: req.user.role?.name || "EMPLOYEE",
-        permissions: req.user.role?.permissions?.map((p: any) => p.name) || [],
+        role: orgRole?.name || "EMPLOYEE",
+        permissions: orgRole?.permissions?.map((p: any) => p.name) || [],
+        organizationId: req.user.organizationId,
       }
     },
     statusCode.OK

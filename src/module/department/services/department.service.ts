@@ -9,16 +9,16 @@ export class DepartmentService {
     description?: string;
     managerId?: string | null;
     parentId?: string | null;
-  }) {
+  }, organizationId?: string) {
     const cleanName = data.name.trim();
     const cleanCode = data.code.trim().toUpperCase();
 
-    const existingName = await DepartmentRepository.findByName(cleanName);
+    const existingName = await DepartmentRepository.findByName(cleanName, organizationId);
     if (existingName) {
       throw new ErrorResponse(`Department with name "${cleanName}" already exists. Please choose a different name.`, statusCode.Conflict);
     }
 
-    const existingCode = await DepartmentRepository.findByCode(cleanCode);
+    const existingCode = await DepartmentRepository.findByCode(cleanCode, organizationId);
     if (existingCode) {
       throw new ErrorResponse(`Department code "${cleanCode}" already exists. Please choose a different code.`, statusCode.Conflict);
     }
@@ -41,12 +41,13 @@ export class DepartmentService {
 
     return DepartmentRepository.create({
       ...data,
-      managerId: resolvedManagerId
+      managerId: resolvedManagerId,
+      organizationId: organizationId || null,
     });
   }
 
-  static async getDepartments() {
-    return DepartmentRepository.findAll();
+  static async getDepartments(organizationId?: string) {
+    return DepartmentRepository.findAll(organizationId);
   }
 
   static async getDepartmentById(id: string) {
@@ -65,7 +66,8 @@ export class DepartmentService {
       description?: string;
       managerId?: string | null;
       parentId?: string | null;
-    }
+    },
+    organizationId?: string
   ) {
     const department = await DepartmentRepository.findById(id);
     if (!department) {
@@ -73,14 +75,14 @@ export class DepartmentService {
     }
 
     if (data.name && data.name !== department.name) {
-      const existingName = await DepartmentRepository.findByName(data.name);
+      const existingName = await DepartmentRepository.findByName(data.name, organizationId);
       if (existingName) {
         throw new ErrorResponse("Department name already in use", statusCode.Conflict);
       }
     }
 
     if (data.code && data.code !== department.code) {
-      const existingCode = await DepartmentRepository.findByCode(data.code);
+      const existingCode = await DepartmentRepository.findByCode(data.code, organizationId);
       if (existingCode) {
         throw new ErrorResponse("Department code already in use", statusCode.Conflict);
       }

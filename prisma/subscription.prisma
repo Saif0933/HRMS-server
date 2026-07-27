@@ -1,0 +1,57 @@
+model SubscriptionPlan {
+  id           String                     @id @default(cuid())
+  code         String                     @unique // basic, pro, enterprise
+  name         String
+  tagline      String?
+  icon         String?                    @default("Send")
+  iconBg       String?
+  price        Float
+  billing      String                     @default("Billed annually")
+  btnText      String                     @default("Get Started")
+  btnStyle     String?
+  checkColor   String?
+  popular      Boolean                    @default(false)
+  features     String[]
+  maxEmployees Int                        @default(25) // -1 for unlimited
+  status       String                     @default("ACTIVE") // ACTIVE, INACTIVE
+  sortOrder    Int                        @default(0)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  subscriptions OrganizationSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model OrganizationSubscription {
+  id             String           @id @default(cuid())
+  organizationId String
+  planId         String
+  status         String           @default("ACTIVE") // ACTIVE, PENDING, EXPIRED, CANCELLED
+  billingCycle   String           @default("ANNUAL") // MONTHLY, ANNUAL
+  pricePaid      Float
+  startDate      DateTime         @default(now())
+  endDate        DateTime?
+  autoRenew      Boolean          @default(true)
+  paymentStatus  String           @default("PAID") // PAID, PENDING, FAILED
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan           SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([planId])
+  @@map("organization_subscriptions")
+}
+
+model SubscriptionFeatureComparison {
+  id        String   @id @default(cuid())
+  label     String
+  basic     String
+  pro       String
+  ent       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscription_feature_comparisons")
+}

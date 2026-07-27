@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect, restrictTo } from "../../../middlewares/auth.middleware.ts";
+import { protect, hasPermission } from "../../../middlewares/auth.middleware.ts";
 import {
   createDepartment,
   getDepartments,
@@ -13,13 +13,13 @@ const router = Router();
 // Protect all department routes (user must be authenticated)
 router.use(protect);
 
-// Read routes available to all authenticated employees
-router.get("/", getDepartments);
-router.get("/:id", getDepartmentById);
+// Read routes
+router.get("/", hasPermission("VIEW_DEPARTMENTS", "VIEW_EMPLOYEES"), getDepartments);
+router.get("/:id", hasPermission("VIEW_DEPARTMENTS", "VIEW_EMPLOYEES"), getDepartmentById);
 
-// Write routes restricted to SUPER_ADMIN or HR_ADMIN
-router.post("/", restrictTo("SUPER_ADMIN", "HR_ADMIN"), createDepartment);
-router.put("/:id", restrictTo("SUPER_ADMIN", "HR_ADMIN"), updateDepartment);
-router.delete("/:id", restrictTo("SUPER_ADMIN", "HR_ADMIN"), deleteDepartment);
+// Write routes
+router.post("/", hasPermission("UPDATE_DEPARTMENTS", "CREATE_EMPLOYEES"), createDepartment);
+router.put("/:id", hasPermission("UPDATE_DEPARTMENTS", "UPDATE_EMPLOYEES"), updateDepartment);
+router.delete("/:id", hasPermission("UPDATE_DEPARTMENTS", "DELETE_EMPLOYEES"), deleteDepartment);
 
 export default router;

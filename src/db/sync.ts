@@ -1,5 +1,6 @@
 import { prisma } from "./prisma.ts";
 import { seedPermissions } from "../seed/permission.seed.ts";
+import { SubscriptionRepository } from "../module/subscription/repo/subscription.repo.ts";
 
 /**
  * Automatically creates the users table and indexes if they do not exist
@@ -44,22 +45,96 @@ export async function syncDatabase() {
       );
     `);
 
+    // Create subscription tables
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "subscription_plans" (
+        "id" TEXT NOT NULL,
+        "code" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "tagline" TEXT,
+        "icon" TEXT DEFAULT 'Send',
+        "iconBg" TEXT,
+        "price" DOUBLE PRECISION NOT NULL,
+        "billing" TEXT NOT NULL DEFAULT 'Billed annually',
+        "btnText" TEXT NOT NULL DEFAULT 'Get Started',
+        "btnStyle" TEXT,
+        "checkColor" TEXT,
+        "popular" BOOLEAN NOT NULL DEFAULT false,
+        "features" TEXT[] DEFAULT ARRAY[]::TEXT[],
+        "maxEmployees" INTEGER NOT NULL DEFAULT 25,
+        "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+        "sortOrder" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "subscription_plans_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "subscription_plans_code_key" ON "subscription_plans"("code");
+    `);
 
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "organization_subscriptions" (
+        "id" TEXT NOT NULL,
+        "organizationId" TEXT NOT NULL,
+        "planId" TEXT NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+        "billingCycle" TEXT NOT NULL DEFAULT 'ANNUAL',
+        "pricePaid" DOUBLE PRECISION NOT NULL,
+        "startDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "endDate" TIMESTAMP(3),
+        "autoRenew" BOOLEAN NOT NULL DEFAULT true,
+        "paymentStatus" TEXT NOT NULL DEFAULT 'PAID',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "organization_subscriptions_pkey" PRIMARY KEY ("id")
+      );
+    `);
 
-    // 2. Create roles table and unique index
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "subscription_feature_comparisons" (
+        "id" TEXT NOT NULL,
+        "label" TEXT NOT NULL,
+        "basic" TEXT NOT NULL,
+        "pro" TEXT NOT NULL,
+        "ent" TEXT NOT NULL,
+        "sortOrder" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "subscription_feature_comparisons_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    // 2. Create roles table and unique index (scoped per organization)
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "roles" (
         "id" TEXT NOT NULL,
         "name" TEXT NOT NULL,
         "description" TEXT,
         "isSystem" BOOLEAN NOT NULL DEFAULT false,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "roles_pkey" PRIMARY KEY ("id")
       );
     `);
+    
+    // Safely add organizationId column if table already exists
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "roles" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    // Drop legacy single-column unique constraint on role name so different organizations can use the same role names
+    try {
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "roles_name_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "roles" DROP CONSTRAINT IF EXISTS "roles_name_key";`);
+    } catch (dropErr: any) {}
+
+    // Create compound unique index on (name, organizationId)
     await prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "roles_name_key" ON "roles"("name");
+      CREATE UNIQUE INDEX IF NOT EXISTS "roles_name_organizationId_key" ON "roles"("name", "organizationId");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "roles_organizationId_idx" ON "roles"("organizationId");
     `);
 
     // 3. Create implicit many-to-many join table (_PermissionToRole) and indices
@@ -76,7 +151,7 @@ export async function syncDatabase() {
       CREATE INDEX IF NOT EXISTS "_PermissionToRole_B_index" ON "_PermissionToRole"("B");
     `);
 
-    // 3.5. Create departments table and indices
+    // 3.5. Create departments table and indices (scoped per organization)
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "departments" (
         "id" TEXT NOT NULL,
@@ -85,16 +160,32 @@ export async function syncDatabase() {
         "description" TEXT,
         "managerId" TEXT,
         "parentId" TEXT,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "departments_pkey" PRIMARY KEY ("id")
       );
     `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "departments" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    try {
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "departments_name_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "departments" DROP CONSTRAINT IF EXISTS "departments_name_key";`);
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "departments_code_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "departments" DROP CONSTRAINT IF EXISTS "departments_code_key";`);
+    } catch (dropErr: any) {}
+
     await prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "departments_name_key" ON "departments"("name");
+      CREATE UNIQUE INDEX IF NOT EXISTS "departments_name_organizationId_key" ON "departments"("name", "organizationId");
     `);
     await prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "departments_code_key" ON "departments"("code");
+      CREATE UNIQUE INDEX IF NOT EXISTS "departments_code_organizationId_key" ON "departments"("code", "organizationId");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "departments_organizationId_idx" ON "departments"("organizationId");
     `);
 
     // 4. Handle "users" table creation/alteration
@@ -1313,11 +1404,11 @@ export async function syncDatabase() {
     if (countVal === 0) {
       console.log("[DB Sync] Seeding default leave types...");
       await prisma.$executeRawUnsafe(`
-        INSERT INTO "leave_types" ("id", "name", "code", "description", "defaultDays", "carryForward", "maxCarryForward", "isActive") VALUES
-        ('lt_sl', 'Sick Leave', 'SL', 'Paid time off for medical needs/recovery', 12, false, 0, true),
-        ('lt_cl', 'Casual Leave', 'CL', 'Paid time off for personal/urgent matters', 12, false, 0, true),
-        ('lt_el', 'Earned Leave', 'EL', 'Accrued annual leave balance', 18, true, 10, true),
-        ('lt_lwp', 'Leave Without Pay', 'LWP', 'Unpaid leave requests', 365, false, 0, true)
+        INSERT INTO "leave_types" ("id", "name", "code", "description", "defaultDays", "carryForward", "maxCarryForward", "isActive", "createdAt", "updatedAt") VALUES
+        ('lt_sl', 'Sick Leave', 'SL', 'Paid time off for medical needs/recovery', 12, false, 0, true, NOW(), NOW()),
+        ('lt_cl', 'Casual Leave', 'CL', 'Paid time off for personal/urgent matters', 12, false, 0, true, NOW(), NOW()),
+        ('lt_el', 'Earned Leave', 'EL', 'Accrued annual leave balance', 18, true, 10, true, NOW(), NOW()),
+        ('lt_lwp', 'Leave Without Pay', 'LWP', 'Unpaid leave requests', 365, false, 0, true, NOW(), NOW())
       `);
       console.log("[DB Sync] Seeded default leave types successfully!");
     }
@@ -1447,6 +1538,9 @@ export async function syncDatabase() {
 
     // Seed/Validate permissions for CRUD operations across modules
     await seedPermissions();
+
+    // Seed default subscription plans and comparison matrix
+    await SubscriptionRepository.seedDefaultDataIfNeeded();
 
     // Print current users status for debugging
     const allUsers = await prisma.user.findMany({

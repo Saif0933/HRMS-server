@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect, restrictTo } from "../../../middlewares/auth.middleware.ts";
+import { protect, hasPermission } from "../../../middlewares/auth.middleware.ts";
 import {
   createOrganization,
   deleteOrganization,
@@ -34,19 +34,19 @@ router.get("/", listOrganizations);
 router
   .route("/:id")
   .get(getOrganization)
-  .patch(restrictTo("SUPER_ADMIN", "HR_ADMIN"), updateOrganization)
-  .delete(restrictTo("SUPER_ADMIN"), deleteOrganization);
+  .patch(hasPermission("UPDATE_EMPLOYEE_MASTER", "UPDATE_ADMIN"), updateOrganization)
+  .delete(hasPermission("DELETE_ADMIN"), deleteOrganization);
 
 // ─── Membership Management ──────────────────────────────────────────────────
 router
   .route("/:orgId/members")
-  .get(listMembers)
-  .post(restrictTo("SUPER_ADMIN", "HR_ADMIN"), addMember);
+  .get(hasPermission("VIEW_EMPLOYEE_DIRECTORY", "VIEW_EMPLOYEES"), listMembers)
+  .post(hasPermission("UPDATE_EMPLOYEE_MASTER", "CREATE_EMPLOYEES"), addMember);
 
 router
   .route("/:orgId/members/:userId")
-  .get(getMembership)
-  .patch(restrictTo("SUPER_ADMIN", "HR_ADMIN"), updateMembership)
-  .delete(restrictTo("SUPER_ADMIN", "HR_ADMIN"), removeMember);
+  .get(hasPermission("VIEW_EMPLOYEE_MASTER", "VIEW_EMPLOYEES"), getMembership)
+  .patch(hasPermission("UPDATE_EMPLOYEE_MASTER", "UPDATE_EMPLOYEES"), updateMembership)
+  .delete(hasPermission("UPDATE_EMPLOYEE_MASTER", "DELETE_EMPLOYEES"), removeMember);
 
 export default router;

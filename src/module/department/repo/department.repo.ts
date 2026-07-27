@@ -7,6 +7,7 @@ export class DepartmentRepository {
     description?: string;
     managerId?: string | null;
     parentId?: string | null;
+    organizationId?: string | null;
   }) {
     return prisma.department.create({
       data: {
@@ -15,6 +16,7 @@ export class DepartmentRepository {
         description: data.description,
         managerId: data.managerId || null,
         parentId: data.parentId || null,
+        organizationId: data.organizationId || null,
       },
       include: {
         manager: true,
@@ -34,30 +36,39 @@ export class DepartmentRepository {
     });
   }
 
-  static async findByName(name: string) {
-    return prisma.department.findFirst({
-      where: {
-        name: {
-          equals: name.trim(),
-          mode: "insensitive"
-        }
-      },
-    });
+  static async findByName(name: string, organizationId?: string) {
+    const where: any = {
+      name: {
+        equals: name.trim(),
+        mode: "insensitive"
+      }
+    };
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+    return prisma.department.findFirst({ where });
   }
 
-  static async findByCode(code: string) {
-    return prisma.department.findFirst({
-      where: {
-        code: {
-          equals: code.trim().toUpperCase(),
-          mode: "insensitive"
-        }
-      },
-    });
+  static async findByCode(code: string, organizationId?: string) {
+    const where: any = {
+      code: {
+        equals: code.trim().toUpperCase(),
+        mode: "insensitive"
+      }
+    };
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+    return prisma.department.findFirst({ where });
   }
 
-  static async findAll() {
+  static async findAll(organizationId?: string) {
+    const where: any = {};
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
     return prisma.department.findMany({
+      where,
       include: {
         manager: true,
         parent: true,
@@ -146,4 +157,3 @@ export class DepartmentRepository {
     return null;
   }
 }
-// 

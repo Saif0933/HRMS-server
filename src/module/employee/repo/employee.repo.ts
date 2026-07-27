@@ -57,20 +57,7 @@ export class EmployeeRepository {
     const whereClause: any = {};
 
     if (filters.organizationId) {
-      whereClause.OR = [
-        {
-          user: {
-            memberships: {
-              some: {
-                organizationId: filters.organizationId,
-              },
-            },
-          },
-        },
-        {
-          userId: null,
-        },
-      ];
+      whereClause.organizationId = filters.organizationId;
     }
 
     if (filters.departmentId) {

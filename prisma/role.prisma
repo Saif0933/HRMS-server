@@ -1,15 +1,19 @@
 model Role {
   id               String             @id @default(cuid())
-  name             String             @unique
+  name             String
   description      String?
   isSystem         Boolean            @default(false)
+  organizationId   String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   memberships      Membership[]
   role_permissions role_permissions[]
   users            User[]
   permissions      Permission[]       @relation("PermissionToRole")
+  organization     Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([name, organizationId])
+  @@index([organizationId])
   @@map("roles")
 }
 

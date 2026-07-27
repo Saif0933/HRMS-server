@@ -28,10 +28,10 @@ export class RoleRepository {
     });
   }
 
-  // Role Operations
-  static async findRoleByName(name: string) {
-    return prisma.role.findUnique({
-      where: { name },
+  // Role Operations — now org-scoped
+  static async findRoleByName(name: string, organizationId: string) {
+    return prisma.role.findFirst({
+      where: { name, organizationId },
     });
   }
 
@@ -44,13 +44,19 @@ export class RoleRepository {
     });
   }
 
-  static async createRole(data: { name: string; description?: string; permissionIds: string[] }) {
-    const { name, description, permissionIds } = data;
+  static async createRole(data: {
+    name: string;
+    description?: string;
+    permissionIds: string[];
+    organizationId: string;
+  }) {
+    const { name, description, permissionIds, organizationId } = data;
     return prisma.role.create({
       data: {
         name,
         description,
         isSystem: false,
+        organizationId,
         permissions: {
           connect: permissionIds.map((id) => ({ id })),
         },
@@ -61,8 +67,9 @@ export class RoleRepository {
     });
   }
 
-  static async findAllRoles() {
+  static async findAllRoles(organizationId: string) {
     return prisma.role.findMany({
+      where: { organizationId },
       include: {
         permissions: true,
       },

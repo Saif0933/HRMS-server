@@ -1,21 +1,33 @@
-import type { NextFunction, Request, Response } from "express";
+import type { NextFunction, Response } from "express";
+import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
 import { statusCode } from "../../../types/types.ts";
-import { SuccessResponse } from "../../../utils/response.util.ts";
+import { ErrorResponse, SuccessResponse } from "../../../utils/response.util.ts";
 import { RoleService } from "../services/role.service.ts";
 import {
-    assignRoleSchema,
-    createPermissionSchema,
-    createRoleSchema,
-    updateRoleSchema,
+  assignRoleSchema,
+  createPermissionSchema,
+  createRoleSchema,
+  updateRoleSchema,
 } from "../validators/role.validator.ts";
+
+/**
+ * Helper to extract organizationId from the authenticated request
+ */
+const getOrganizationId = (req: AuthenticatedRequest): string => {
+  const orgId = req.user?.organizationId;
+  if (!orgId) {
+    throw new ErrorResponse("Organization context not found. Please log in again.", statusCode.Bad_Request);
+  }
+  return orgId;
+};
 
 /**
  * @desc    Create a new permission node
  * @route   POST /api/v1/admin/permissions
  * @access  Private (Admin only)
  */
-export const createPermission = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createPermission = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createPermissionSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
@@ -36,7 +48,7 @@ export const createPermission = asyncHandler(async (req: Request, res: Response,
  * @route   GET /api/v1/admin/permissions
  * @access  Private (Admin only)
  */
-export const getPermissions = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getPermissions = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const permissions = await RoleService.getPermissions();
 
   return SuccessResponse(
@@ -48,17 +60,18 @@ export const getPermissions = asyncHandler(async (req: Request, res: Response, n
 });
 
 /**
- * @desc    Create a new role with associated permissions
+ * @desc    Create a new role with associated permissions (scoped to user's organization)
  * @route   POST /api/v1/admin/roles
  * @access  Private (Admin only)
  */
-export const createRole = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createRole = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createRoleSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const role = await RoleService.createRole(parsed.data);
+  const organizationId = getOrganizationId(req);
+  const role = await RoleService.createRole(parsed.data, organizationId);
 
   return SuccessResponse(
     res,
@@ -69,12 +82,13 @@ export const createRole = asyncHandler(async (req: Request, res: Response, next:
 });
 
 /**
- * @desc    Get all roles with their permissions
+ * @desc    Get all roles with their permissions (scoped to user's organization)
  * @route   GET /api/v1/admin/roles
  * @access  Private (Admin only)
  */
-export const getRoles = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const roles = await RoleService.getRoles();
+export const getRoles = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const organizationId = getOrganizationId(req);
+  const roles = await RoleService.getRoles(organizationId);
 
   return SuccessResponse(
     res,
@@ -85,11 +99,11 @@ export const getRoles = asyncHandler(async (req: Request, res: Response, next: N
 });
 
 /**
- * @desc    Update an existing role's name, description, and permissions
+ * @desc    Update an existing role's name, description, and permissions (scoped to user's organization)
  * @route   PUT /api/v1/admin/roles/:id
  * @access  Private (Admin only)
  */
-export const updateRole = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const updateRole = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
 
   const parsed = updateRoleSchema.safeParse(req.body);
@@ -97,7 +111,8 @@ export const updateRole = asyncHandler(async (req: Request, res: Response, next:
     return next(parsed.error);
   }
 
-  const updatedRole = await RoleService.updateRole(id, parsed.data);
+  const organizationId = getOrganizationId(req);
+  const updatedRole = await RoleService.updateRole(id, parsed.data, organizationId);
 
   return SuccessResponse(
     res,
@@ -108,14 +123,15 @@ export const updateRole = asyncHandler(async (req: Request, res: Response, next:
 });
 
 /**
- * @desc    Delete a role
+ * @desc    Delete a role (scoped to user's organization)
  * @route   DELETE /api/v1/admin/roles/:id
  * @access  Private (Admin only)
  */
-export const deleteRole = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const deleteRole = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
 
-  await RoleService.deleteRole(id);
+  const organizationId = getOrganizationId(req);
+  await RoleService.deleteRole(id, organizationId);
 
   return SuccessResponse(
     res,
@@ -126,18 +142,19 @@ export const deleteRole = asyncHandler(async (req: Request, res: Response, next:
 });
 
 /**
- * @desc    Assign a role to a user
+ * @desc    Assign a role to a user (scoped to user's organization)
  * @route   POST /api/v1/admin/assign-role
  * @access  Private (Admin only)
  */
-export const assignRoleToUser = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const assignRoleToUser = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = assignRoleSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
   const { userId, roleId } = parsed.data;
-  const updatedUser = await RoleService.assignRoleToUser(userId, roleId || null);
+  const organizationId = getOrganizationId(req);
+  const updatedUser = await RoleService.assignRoleToUser(userId, roleId || null, organizationId);
 
   return SuccessResponse(
     res,

@@ -172,24 +172,13 @@ export async function seedPermissions() {
 
   console.log(`[Permission Seed] Total permissions validated: ${dbPermissions.length}`);
 
-  // Auto-connect ALL permissions to SUPER_ADMIN role so Organization / System Admins automatically get all permissions
-  const superAdminRole = await prisma.role.findFirst({
-    where: { name: "SUPER_ADMIN" }
-  });
-
-  if (superAdminRole) {
-    await prisma.role.update({
-      where: { id: superAdminRole.id },
-      data: {
-        permissions: {
-          connect: dbPermissions.map(p => ({ id: p.id }))
-        }
-      }
-    });
-    console.log(`[Permission Seed] Successfully connected all ${dbPermissions.length} permissions to SUPER_ADMIN role!`);
-  }
+  // NOTE: We no longer auto-connect permissions to a global SUPER_ADMIN role.
+  // In the multi-tenant architecture, each organization gets its own SUPER_ADMIN role
+  // with all permissions connected during the onboarding process.
+  // See: companyDirectory.service.ts → createCompany() for the onboarding flow.
 
   console.log("[Permission Seed] Permission seeding process finished successfully!");
+  console.log("[Permission Seed] NOTE: Org-specific SUPER_ADMIN roles are created during organization onboarding.");
 }
 
 

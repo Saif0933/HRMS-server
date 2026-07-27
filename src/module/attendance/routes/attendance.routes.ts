@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect } from "../../../middlewares/auth.middleware.ts";
+import { protect, hasPermission } from "../../../middlewares/auth.middleware.ts";
 import {
   getPunches,
   createPunch,
@@ -18,15 +18,15 @@ const router = Router();
 // Protect all routes
 router.use(protect);
 
-router.get("/punches/:employeeId", getPunches);
-router.post("/punches", createPunch);
-router.get("/regularizations", getRegularizations);
-router.post("/regularizations", applyRegularization);
-router.patch("/regularizations/:id", updateRegularization);
-router.get("/geofences", getGeofences);
-router.post("/geofences", createGeofence);
-router.delete("/geofences/:id", deleteGeofence);
-router.get("/rosters", getRosters);
-router.post("/rosters", saveRosters);
+router.get("/punches/:employeeId", hasPermission("VIEW_GPS_SELFIE_PUNCH", "VIEW_ATTENDANCE"), getPunches);
+router.post("/punches", hasPermission("CREATE_GPS_SELFIE_PUNCH", "CREATE_ATTENDANCE"), createPunch);
+router.get("/regularizations", hasPermission("VIEW_ATTENDANCE_REGULARIZATION", "VIEW_ATTENDANCE"), getRegularizations);
+router.post("/regularizations", hasPermission("CREATE_ATTENDANCE_REGULARIZATION", "CREATE_ATTENDANCE"), applyRegularization);
+router.patch("/regularizations/:id", hasPermission("UPDATE_ATTENDANCE_REGULARIZATION", "UPDATE_ATTENDANCE"), updateRegularization);
+router.get("/geofences", hasPermission("VIEW_ATTENDANCE"), getGeofences);
+router.post("/geofences", hasPermission("UPDATE_ATTENDANCE"), createGeofence);
+router.delete("/geofences/:id", hasPermission("DELETE_ATTENDANCE"), deleteGeofence);
+router.get("/rosters", hasPermission("VIEW_SHIFT_ROSTER", "VIEW_ATTENDANCE"), getRosters);
+router.post("/rosters", hasPermission("UPDATE_SHIFT_ROSTER", "UPDATE_ATTENDANCE"), saveRosters);
 
 export default router;

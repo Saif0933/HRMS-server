@@ -1,0 +1,132 @@
+/**
+ * Strong TypeScript types representing all available permissions in the HRMS system.
+ */
+
+// 1. Module Level CRUD Permissions
+export type ModuleCrudPermission =
+  | "CREATE_EMPLOYEES" | "VIEW_EMPLOYEES" | "UPDATE_EMPLOYEES" | "DELETE_EMPLOYEES"
+  | "CREATE_ATTENDANCE" | "VIEW_ATTENDANCE" | "UPDATE_ATTENDANCE" | "DELETE_ATTENDANCE"
+  | "CREATE_LEAVE" | "VIEW_LEAVE" | "UPDATE_LEAVE" | "DELETE_LEAVE"
+  | "CREATE_PAYROLL" | "VIEW_PAYROLL" | "UPDATE_PAYROLL" | "DELETE_PAYROLL"
+  | "CREATE_PERFORMANCE" | "VIEW_PERFORMANCE" | "UPDATE_PERFORMANCE" | "DELETE_PERFORMANCE"
+  | "CREATE_ENGAGEMENT" | "VIEW_ENGAGEMENT" | "UPDATE_ENGAGEMENT" | "DELETE_ENGAGEMENT"
+  | "CREATE_CLAIMS" | "VIEW_CLAIMS" | "UPDATE_CLAIMS" | "DELETE_CLAIMS"
+  | "CREATE_TIMESHEETS" | "VIEW_TIMESHEETS" | "UPDATE_TIMESHEETS" | "DELETE_TIMESHEETS"
+  | "CREATE_RECRUITMENT" | "VIEW_RECRUITMENT" | "UPDATE_RECRUITMENT" | "DELETE_RECRUITMENT"
+  | "CREATE_DOCUMENTS" | "VIEW_DOCUMENTS" | "UPDATE_DOCUMENTS" | "DELETE_DOCUMENTS"
+  | "CREATE_ASSETS" | "VIEW_ASSETS" | "UPDATE_ASSETS" | "DELETE_ASSETS"
+  | "CREATE_LETTERS" | "VIEW_LETTERS" | "UPDATE_LETTERS" | "DELETE_LETTERS"
+  | "CREATE_HELPDESK" | "VIEW_HELPDESK" | "UPDATE_HELPDESK" | "DELETE_HELPDESK"
+  | "CREATE_ADMIN" | "VIEW_ADMIN" | "UPDATE_ADMIN" | "DELETE_ADMIN";
+
+// 2. Employee Sub-permissions
+export type EmployeeSubPermission =
+  | "VIEW_EMPLOYEE_DIRECTORY"
+  | "VIEW_EMPLOYEE_MASTER"
+  | "UPDATE_EMPLOYEE_MASTER"
+  | "VIEW_ORGANIZATION_CHART"
+  | "VIEW_EXIT_SETTLEMENT"
+  | "UPDATE_EXIT_SETTLEMENT"
+  | "MANAGE_BULK_IMPORTS"
+  | "VIEW_ROLES_PERMISSIONS"
+  | "UPDATE_ROLES_PERMISSIONS"
+  | "VIEW_DEPARTMENTS"
+  | "UPDATE_DEPARTMENTS";
+
+// 3. Attendance Sub-permissions
+export type AttendanceSubPermission =
+  | "VIEW_GPS_SELFIE_PUNCH"
+  | "CREATE_GPS_SELFIE_PUNCH"
+  | "VIEW_SHIFT_ROSTER"
+  | "UPDATE_SHIFT_ROSTER"
+  | "VIEW_ATTENDANCE_REGULARIZATION"
+  | "CREATE_ATTENDANCE_REGULARIZATION"
+  | "UPDATE_ATTENDANCE_REGULARIZATION"
+  | "VIEW_MUSTER_ROLL"
+  | "VIEW_ATTENDANCE_REPORTS";
+
+// 4. Leave Sub-permissions
+export type LeaveSubPermission =
+  | "CREATE_LEAVE_APPLICATION"
+  | "VIEW_LEAVE_APPLICATION"
+  | "UPDATE_LEAVE_APPROVAL"
+  | "VIEW_LEAVE_CALENDAR"
+  | "VIEW_LEAVE_POLICIES"
+  | "UPDATE_LEAVE_POLICIES";
+
+// 5. Payroll Sub-permissions
+export type PayrollSubPermission =
+  | "UPDATE_SALARY_PROCESSING"
+  | "UPDATE_SALARY_STRUCTURE"
+  | "VIEW_LOANS_ADVANCES"
+  | "CREATE_LOANS_ADVANCES"
+  | "UPDATE_LOANS_ADVANCES"
+  | "VIEW_INVESTMENT_DECLARATIONS"
+  | "CREATE_INVESTMENT_DECLARATIONS"
+  | "UPDATE_INVESTMENT_DECLARATIONS"
+  | "VIEW_PAYSLIP_TEMPLATES"
+  | "VIEW_PAYROLL_REPORTS";
+
+// 6. Performance Sub-permissions
+export type PerformanceSubPermission =
+  | "VIEW_KRA_GOALS"
+  | "CREATE_KRA_GOALS"
+  | "UPDATE_KRA_GOALS"
+  | "VIEW_FEEDBACK_360"
+  | "CREATE_FEEDBACK_360"
+  | "VIEW_BELLCURVE_ANALYTICS";
+
+// 7. Engagement Sub-permissions
+export type EngagementSubPermission =
+  | "VIEW_SOCIAL_FEED"
+  | "CREATE_SOCIAL_POST"
+  | "VIEW_MOOD_ANALYSIS"
+  | "VIEW_SURVEYS"
+  | "CREATE_SURVEYS";
+
+// 8. Claims Sub-permissions
+export type ClaimsSubPermission =
+  | "CREATE_TRAVEL_REQUEST"
+  | "VIEW_TRAVEL_REQUEST"
+  | "CREATE_EXPENSE_REIMBURSEMENT"
+  | "VIEW_EXPENSE_REIMBURSEMENT"
+  | "UPDATE_CLAIM_APPROVAL";
+
+// 9. Timesheets Sub-permissions
+export type TimesheetsSubPermission =
+  | "CREATE_TIMESHEET_ENTRY"
+  | "VIEW_TIMESHEET_ENTRY"
+  | "VIEW_CLIENTS_PROJECTS"
+  | "UPDATE_CLIENTS_PROJECTS";
+
+// 10. Recruitment Sub-permissions
+export type RecruitmentSubPermission =
+  | "VIEW_JOB_REQUISITIONS"
+  | "CREATE_JOB_REQUISITIONS"
+  | "VIEW_CANDIDATE_PIPELINE"
+  | "UPDATE_CANDIDATE_PIPELINE"
+  | "VIEW_PRE_ONBOARDING"
+  | "UPDATE_PRE_ONBOARDING";
+
+// 11. Documents, Assets, Letters, Helpdesk Sub-permissions
+export type DocumentSubPermission = "VIEW_DOCUMENT_VAULT" | "CREATE_DOCUMENT_VAULT";
+export type AssetSubPermission = "VIEW_ASSET_MANAGEMENT" | "UPDATE_ASSET_MANAGEMENT";
+export type LetterSubPermission = "VIEW_LETTER_GENERATOR" | "CREATE_LETTER_GENERATOR";
+export type HelpdeskSubPermission = "CREATE_HR_HELPDESK_TICKET" | "VIEW_HR_HELPDESK_TICKETS" | "UPDATE_HR_HELPDESK_TICKET";
+
+// Combined Union Type of All System Permissions
+export type PermissionName =
+  | ModuleCrudPermission
+  | EmployeeSubPermission
+  | AttendanceSubPermission
+  | LeaveSubPermission
+  | PayrollSubPermission
+  | PerformanceSubPermission
+  | EngagementSubPermission
+  | ClaimsSubPermission
+  | TimesheetsSubPermission
+  | RecruitmentSubPermission
+  | DocumentSubPermission
+  | AssetSubPermission
+  | LetterSubPermission
+  | HelpdeskSubPermission;

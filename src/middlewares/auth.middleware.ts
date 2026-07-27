@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import env from "../config/env.config";
 import { prisma } from "../db/prisma.ts";
 import { PlatformRepository } from "../module/platform/repo/platform.repo.ts";
+import type { PermissionName } from "../types/permission.ts";
 import { verifyToken } from "../utils/jwt.util";
 import { ErrorResponse } from "../utils/response.util";
 import { asyncHandler } from "./error.middleware";
@@ -80,7 +81,14 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
         where: { id: decoded.id },
         include: { 
           memberships: {
-            include: { organizations: true }
+            include: { 
+              organizations: true,
+              role: {
+                include: {
+                  permissions: true,
+                }
+              }
+            }
           },
           role: {
             include: {
@@ -96,7 +104,14 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
         where: { phone: decoded.phoneNumber },
         include: { 
           memberships: {
-            include: { organizations: true }
+            include: { 
+              organizations: true,
+              role: {
+                include: {
+                  permissions: true,
+                }
+              }
+            }
           },
           role: {
             include: {
@@ -126,12 +141,18 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
       return next(new ErrorResponse("User not found", 404));
     }
 
-    // Attach user and organizationId to the request context
-    const primaryOrganizationId = user.memberships?.[0]?.organizationId;
+    // Determine the primary organization and org-scoped role from membership
+    const activeMembership = user.memberships?.find((m: any) => m.status === "ACTIVE") || user.memberships?.[0];
+    const primaryOrganizationId = activeMembership?.organizationId;
+
+    // Use the org-scoped role from membership if available, otherwise fall back to user's direct role
+    const orgRole = activeMembership?.role || user.role;
 
     req.user = {
       ...user,
       organizationId: primaryOrganizationId,
+      // Override role with the org-scoped role from membership
+      role: orgRole,
     };
     next();
   } catch (error: any) {
@@ -141,7 +162,8 @@ export const protect = asyncHandler(async (req: AuthenticatedRequest, res: Respo
 });
 
 /**
- * Route authorization restriction middleware based on role list
+ * Route authorization restriction middleware based on role list.
+ * Checks the user's org-scoped role name.
  */
 export const restrictTo = (...roles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -149,11 +171,49 @@ export const restrictTo = (...roles: string[]) => {
       return next(new ErrorResponse("Not authorized to access this route", 401));
     }
 
-    if (req.user.role?.name === "SUPER_ADMIN" || req.user.isPlatformAdmin) {
+    // Platform admins always have full access
+    if (req.user.isPlatformAdmin) {
       return next();
     }
 
-    if (!req.user.role || !roles.includes(req.user.role.name)) {
+    // Check if the user's org-scoped role name matches any of the allowed roles
+    const userRoleName = req.user.role?.name;
+
+    // Org SUPER_ADMIN has full access within their org
+    if (userRoleName === "SUPER_ADMIN") {
+      return next();
+    }
+
+    if (!userRoleName || !roles.includes(userRoleName)) {
+      return next(new ErrorResponse("You do not have permission to perform this action", 403));
+    }
+
+    next();
+  };
+};
+
+/**
+ * Route authorization middleware based on permissions.
+ * Checks if the user's role possesses AT LEAST ONE of the required permissions.
+ * Platform Admins and Org SUPER_ADMIN bypass permission checks.
+ */
+export const hasPermission = (...requiredPermissions: PermissionName[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new ErrorResponse("Not authorized to access this route", 401));
+    }
+
+    // Platform admins or org SUPER_ADMIN have full access
+    if (req.user.isPlatformAdmin || req.user.role?.name === "SUPER_ADMIN") {
+      return next();
+    }
+
+    const userPermissions: string[] =
+      req.user.role?.permissions?.map((p: any) => (typeof p === "string" ? p : p.name)) || [];
+
+    const hasAnyPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
+
+    if (!hasAnyPermission) {
       return next(new ErrorResponse("You do not have permission to perform this action", 403));
     }
 

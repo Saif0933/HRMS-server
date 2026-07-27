@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect, restrictTo } from "../../../middlewares/auth.middleware.ts";
+import { protect, hasPermission } from "../../../middlewares/auth.middleware.ts";
 import {
   getGoals,
   createGoal,
@@ -18,20 +18,20 @@ const router = Router();
 router.use(protect);
 
 // 1. KRA & Goals Routes
-router.get("/goals", getGoals);
-router.post("/goals", restrictTo("SUPER_ADMIN", "HR_ADMIN", "MANAGER"), createGoal);
-router.patch("/goals/:id/progress", updateGoalProgress);
+router.get("/goals", hasPermission("VIEW_KRA_GOALS", "VIEW_PERFORMANCE"), getGoals);
+router.post("/goals", hasPermission("CREATE_KRA_GOALS", "CREATE_PERFORMANCE"), createGoal);
+router.patch("/goals/:id/progress", hasPermission("UPDATE_KRA_GOALS", "UPDATE_PERFORMANCE"), updateGoalProgress);
 
 // 2. Feedback Routes
-router.get("/feedbacks", getFeedbacks);
-router.post("/feedbacks", createFeedback);
+router.get("/feedbacks", hasPermission("VIEW_FEEDBACK_360", "VIEW_PERFORMANCE"), getFeedbacks);
+router.post("/feedbacks", hasPermission("CREATE_FEEDBACK_360", "CREATE_PERFORMANCE"), createFeedback);
 
 // 3. Appraisals & Bell Curve Routes
-router.get("/bellcurve", getBellCurveDistribution);
-router.post("/appraisals", restrictTo("SUPER_ADMIN", "HR_ADMIN", "MANAGER"), saveAppraisal);
+router.get("/bellcurve", hasPermission("VIEW_BELLCURVE_ANALYTICS", "VIEW_PERFORMANCE"), getBellCurveDistribution);
+router.post("/appraisals", hasPermission("UPDATE_KRA_GOALS", "UPDATE_PERFORMANCE"), saveAppraisal);
 
-// 4. Monthly Rating Routes (Employee Profile / Super Admin)
-router.get("/ratings", getMonthlyRatings);
-router.post("/ratings", restrictTo("SUPER_ADMIN", "HR_ADMIN", "MANAGER"), createMonthlyRating);
+// 4. Monthly Rating Routes
+router.get("/ratings", hasPermission("VIEW_KRA_GOALS", "VIEW_PERFORMANCE"), getMonthlyRatings);
+router.post("/ratings", hasPermission("UPDATE_KRA_GOALS", "CREATE_PERFORMANCE"), createMonthlyRating);
 
 export default router;

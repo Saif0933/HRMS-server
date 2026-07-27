@@ -11,19 +11,21 @@ model PlatformAdmin {
 }
 
 model PlatformCompany {
-  id            String   @id @default(cuid())
-  name          String
-  industry      String
-  employeeCount Int      @default(0)
-  licenseTier   String   @default("Starter") // Enterprise | Pro | Starter
-  status        String   @default("Active")   // Active | Onboarding | Suspended
-  contactEmail  String
-  onboardedDate String   // e.g. "Oct 24, 2023" or ISO string
-  iconName      String?  @default("LightningIcon")
-  iconColor     String?  @default("#4f46e5")
-  iconBg        String?  @default("#ede9fe")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String        @id @default(cuid())
+  name           String
+  industry       String
+  employeeCount  Int           @default(0)
+  licenseTier    String        @default("Starter") // Enterprise | Pro | Starter
+  status         String        @default("Active")   // Active | Onboarding | Suspended
+  contactEmail   String
+  onboardedDate  String        // e.g. "Oct 24, 2023" or ISO string
+  organizationId String?       @unique
+  iconName       String?       @default("LightningIcon")
+  iconColor      String?       @default("#4f46e5")
+  iconBg         String?       @default("#ede9fe")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@map("platform_companies")
 }

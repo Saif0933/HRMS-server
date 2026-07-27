@@ -1,16 +1,21 @@
 model Department {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  code        String       @unique
-  description String?
-  managerId   String?
-  parentId    String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  manager     User?        @relation("DepartmentManager", fields: [managerId], references: [id])
-  parent      Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
-  children    Department[] @relation("DepartmentHierarchy")
-  employees   Employee[]
+  id             String       @id @default(cuid())
+  name           String
+  code           String
+  description    String?
+  managerId      String?
+  parentId       String?
+  organizationId String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  manager        User?        @relation("DepartmentManager", fields: [managerId], references: [id])
+  parent         Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children       Department[] @relation("DepartmentHierarchy")
+  employees      Employee[]
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([name, organizationId])
+  @@unique([code, organizationId])
+  @@index([organizationId])
   @@map("departments")
 }
