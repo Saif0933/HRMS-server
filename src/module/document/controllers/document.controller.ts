@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
 import { DocumentService } from "../services/document.service.ts";
 import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
@@ -7,11 +8,15 @@ import { uploadDocumentSchema } from "../validators/document.validator.ts";
 import { uploadBufferToCloudinary, uploadDataUriToCloudinary } from "../../../utils/cloudinary.util.ts";
 import { prisma } from "../../../db/prisma.ts";
 
-export const getDocuments = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getDocuments = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
   const category = req.query.category as string | undefined;
 
-  const docs = await DocumentService.getDocuments({ employeeId, category });
+  const docs = await DocumentService.getDocuments({
+    employeeId,
+    category,
+    organizationId: req.user?.organizationId,
+  });
 
   return SuccessResponse(
     res,
@@ -21,13 +26,13 @@ export const getDocuments = asyncHandler(async (req: Request, res: Response, nex
   );
 });
 
-export const uploadDocument = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const uploadDocument = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = uploadDocumentSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const doc = await DocumentService.uploadDocument(parsed.data);
+  const doc = await DocumentService.uploadDocument(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -76,9 +81,9 @@ export const uploadAvatar = asyncHandler(async (req: any, res: Response, next: N
   );
 });
 
-export const deleteDocument = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const deleteDocument = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
-  await DocumentService.deleteDocument(id);
+  await DocumentService.deleteDocument(id, req.user?.organizationId);
 
   return SuccessResponse(
     res,

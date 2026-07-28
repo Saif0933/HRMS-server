@@ -467,13 +467,21 @@ export async function syncDatabase() {
         "month" TEXT NOT NULL,
         "year" INTEGER NOT NULL,
         "status" TEXT NOT NULL DEFAULT 'PENDING_ATTENDANCE_LOCK',
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "payroll_cycles_pkey" PRIMARY KEY ("id")
       );
     `);
+
+    try {
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "payroll_cycles_month_year_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "payroll_cycles" DROP CONSTRAINT IF EXISTS "payroll_cycles_month_year_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "payroll_cycles" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
     await prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "payroll_cycles_month_year_key" ON "payroll_cycles"("month", "year");
+      CREATE UNIQUE INDEX IF NOT EXISTS "payroll_cycles_month_year_organizationId_key" ON "payroll_cycles"("month", "year", "organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -492,13 +500,22 @@ export async function syncDatabase() {
         "deductions" DOUBLE PRECISION NOT NULL,
         "netSalary" DOUBLE PRECISION NOT NULL,
         "status" TEXT NOT NULL DEFAULT 'PENDING',
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "payroll_runs_pkey" PRIMARY KEY ("id")
       );
     `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
     await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "payroll_runs_employeeId_cycleId_key" ON "payroll_runs"("employeeId", "cycleId");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "payroll_runs_organizationId_idx" ON "payroll_runs"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -507,12 +524,21 @@ export async function syncDatabase() {
         "employeeId" TEXT NOT NULL,
         "cycleId" TEXT NOT NULL,
         "reason" TEXT,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "payroll_exclusions_pkey" PRIMARY KEY ("id")
       );
     `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "payroll_exclusions" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
     await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "payroll_exclusions_employeeId_cycleId_key" ON "payroll_exclusions"("employeeId", "cycleId");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "payroll_exclusions_organizationId_idx" ON "payroll_exclusions"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -525,10 +551,19 @@ export async function syncDatabase() {
         "purpose" TEXT,
         "status" TEXT NOT NULL DEFAULT 'ACTIVE',
         "approvedDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "loans_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "loans_organizationId_idx" ON "loans"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -550,13 +585,22 @@ export async function syncDatabase() {
         "sec80C" DOUBLE PRECISION NOT NULL DEFAULT 0,
         "sec80D" DOUBLE PRECISION NOT NULL DEFAULT 0,
         "declaredHra" DOUBLE PRECISION NOT NULL DEFAULT 0,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "tax_declarations_pkey" PRIMARY KEY ("id")
       );
     `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "tax_declarations" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
     await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "tax_declarations_employeeId_financialYear_key" ON "tax_declarations"("employeeId", "financialYear");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "tax_declarations_organizationId_idx" ON "tax_declarations"("organizationId");
     `);
 
     // Create performance tables
@@ -569,10 +613,19 @@ export async function syncDatabase() {
         "kra" TEXT NOT NULL,
         "progress" INTEGER NOT NULL DEFAULT 0,
         "status" TEXT NOT NULL DEFAULT 'In Progress',
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "performance_goals_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "performance_goals" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "performance_goals_organizationId_idx" ON "performance_goals"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -584,9 +637,18 @@ export async function syncDatabase() {
         "rating" DOUBLE PRECISION NOT NULL,
         "text" TEXT NOT NULL,
         "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "performance_feedbacks_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "performance_feedbacks" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "performance_feedbacks_organizationId_idx" ON "performance_feedbacks"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -596,13 +658,49 @@ export async function syncDatabase() {
         "rating" INTEGER NOT NULL,
         "cycle" TEXT NOT NULL,
         "status" TEXT NOT NULL DEFAULT 'PENDING',
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "performance_appraisals_pkey" PRIMARY KEY ("id")
       );
     `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "performance_appraisals" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
     await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "performance_appraisals_employeeId_cycle_key" ON "performance_appraisals"("employeeId", "cycle");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "performance_appraisals_organizationId_idx" ON "performance_appraisals"("organizationId");
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "performance_ratings" (
+        "id" TEXT NOT NULL,
+        "employeeId" TEXT NOT NULL,
+        "month" TEXT NOT NULL,
+        "rating" DOUBLE PRECISION NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'EXCEEDS EXPECTATIONS',
+        "tasks" TEXT NOT NULL DEFAULT '95%',
+        "quality" TEXT NOT NULL DEFAULT '4.5/5',
+        "teamwork" TEXT NOT NULL DEFAULT '4.5/5',
+        "feedback" TEXT,
+        "givenBy" TEXT NOT NULL DEFAULT 'Super Admin',
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "performance_ratings_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "performance_ratings" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "performance_ratings_organizationId_idx" ON "performance_ratings"("organizationId");
     `);
 
     // Create engagement tables
@@ -707,10 +805,68 @@ export async function syncDatabase() {
         "reason" TEXT NOT NULL,
         "status" TEXT NOT NULL DEFAULT 'Pending',
         "receiptUrl" TEXT,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "travel_claims_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "travel_claims" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "travel_claims_organizationId_idx" ON "travel_claims"("organizationId");
+    `);
+
+    // Create recruitment tables
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "job_requisitions" (
+        "id" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "department" TEXT NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'Open',
+        "applicantsCount" INTEGER NOT NULL DEFAULT 0,
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "job_requisitions_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "job_requisitions" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "job_requisitions_organizationId_idx" ON "job_requisitions"("organizationId");
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "candidates" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "role" TEXT NOT NULL,
+        "experience" TEXT NOT NULL,
+        "email" TEXT NOT NULL,
+        "stage" TEXT NOT NULL DEFAULT 'Applied',
+        "bgvChecked" BOOLEAN NOT NULL DEFAULT FALSE,
+        "contractSigned" BOOLEAN NOT NULL DEFAULT FALSE,
+        "hardwareAssigned" BOOLEAN NOT NULL DEFAULT FALSE,
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "candidates_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "candidates" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "candidates_organizationId_idx" ON "candidates"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -727,10 +883,19 @@ export async function syncDatabase() {
         "totalHours" DOUBLE PRECISION NOT NULL,
         "week" TEXT NOT NULL,
         "status" TEXT NOT NULL DEFAULT 'Pending',
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "timesheets_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "timesheets" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "timesheets_organizationId_idx" ON "timesheets"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -744,6 +909,95 @@ export async function syncDatabase() {
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "job_requisitions_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "leave_types" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "code" TEXT NOT NULL,
+        "description" TEXT,
+        "defaultDays" DOUBLE PRECISION NOT NULL,
+        "carryForward" BOOLEAN NOT NULL DEFAULT FALSE,
+        "maxCarryForward" DOUBLE PRECISION DEFAULT 0,
+        "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "leave_types_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "leave_types_name_key";`);
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "leave_types_code_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "leave_types" DROP CONSTRAINT IF EXISTS "leave_types_name_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "leave_types" DROP CONSTRAINT IF EXISTS "leave_types_code_key";`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "leave_types" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "leave_types_name_organizationId_key" ON "leave_types"("name", "organizationId");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "leave_types_code_organizationId_key" ON "leave_types"("code", "organizationId");
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "leave_allocations" (
+        "id" TEXT NOT NULL,
+        "employeeId" TEXT NOT NULL,
+        "leaveTypeId" TEXT NOT NULL,
+        "year" INTEGER NOT NULL,
+        "allocated" DOUBLE PRECISION NOT NULL,
+        "used" DOUBLE PRECISION NOT NULL DEFAULT 0,
+        "pending" DOUBLE PRECISION NOT NULL DEFAULT 0,
+        "carriedForward" DOUBLE PRECISION NOT NULL DEFAULT 0,
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "leave_allocations_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "leave_allocations" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "leave_allocations_organizationId_idx" ON "leave_allocations"("organizationId");
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "leave_requests" (
+        "id" TEXT NOT NULL,
+        "employeeId" TEXT NOT NULL,
+        "leaveTypeId" TEXT NOT NULL,
+        "startDate" TIMESTAMP(3) NOT NULL,
+        "endDate" TIMESTAMP(3) NOT NULL,
+        "halfDay" BOOLEAN NOT NULL DEFAULT FALSE,
+        "halfDaySession" TEXT,
+        "totalDays" DOUBLE PRECISION NOT NULL,
+        "reason" TEXT NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'PENDING',
+        "attachmentUrl" TEXT,
+        "appliedDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "approvedById" TEXT,
+        "approvedAt" TIMESTAMP(3),
+        "rejectionReason" TEXT,
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "leave_requests_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "leave_requests" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "leave_requests_organizationId_idx" ON "leave_requests"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -767,6 +1021,7 @@ export async function syncDatabase() {
       CREATE TABLE IF NOT EXISTS "vault_documents" (
         "id" TEXT NOT NULL,
         "employeeId" TEXT NOT NULL,
+        "organizationId" TEXT,
         "name" TEXT NOT NULL,
         "category" TEXT NOT NULL,
         "uploadedOn" TEXT NOT NULL,
@@ -778,6 +1033,14 @@ export async function syncDatabase() {
       );
     `);
 
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "vault_documents" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "vault_documents_organizationId_idx" ON "vault_documents"("organizationId");
+    `);
+
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "assets" (
         "id" TEXT NOT NULL,
@@ -785,11 +1048,20 @@ export async function syncDatabase() {
         "category" TEXT NOT NULL,
         "serial" TEXT NOT NULL,
         "employeeId" TEXT,
+        "organizationId" TEXT,
         "status" TEXT NOT NULL DEFAULT 'In Stock',
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "assets_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "assets" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "assets_organizationId_idx" ON "assets"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -801,16 +1073,26 @@ export async function syncDatabase() {
         "joiningDate" TEXT,
         "salaryCtc" TEXT,
         "warningReason" TEXT,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "issued_letters_pkey" PRIMARY KEY ("id")
       );
     `);
 
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "issued_letters" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "issued_letters_organizationId_idx" ON "issued_letters"("organizationId");
+    `);
+
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "help_tickets" (
         "id" TEXT NOT NULL,
         "employeeId" TEXT NOT NULL,
+        "organizationId" TEXT,
         "subject" TEXT NOT NULL,
         "description" TEXT NOT NULL,
         "category" TEXT NOT NULL,
@@ -822,6 +1104,14 @@ export async function syncDatabase() {
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "help_tickets_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "help_tickets" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "help_tickets_organizationId_idx" ON "help_tickets"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -897,10 +1187,19 @@ export async function syncDatabase() {
         "action" TEXT NOT NULL,
         "module" TEXT NOT NULL,
         "details" TEXT NOT NULL,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "audit_logs" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "audit_logs_organizationId_idx" ON "audit_logs"("organizationId");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -909,10 +1208,64 @@ export async function syncDatabase() {
         "name" TEXT NOT NULL,
         "type" TEXT NOT NULL,
         "date" TIMESTAMP(3) NOT NULL,
+        "organizationId" TEXT,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "holidays_pkey" PRIMARY KEY ("id")
       );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "holidays" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "holidays_organizationId_idx" ON "holidays"("organizationId");
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "engagement_posts" (
+        "id" TEXT NOT NULL,
+        "authorName" TEXT NOT NULL,
+        "authorRole" TEXT NOT NULL,
+        "authorAvatar" TEXT,
+        "content" TEXT NOT NULL,
+        "image" TEXT,
+        "likesCount" INTEGER NOT NULL DEFAULT 0,
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "engagement_posts_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "engagement_posts" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "engagement_posts_organizationId_idx" ON "engagement_posts"("organizationId");
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "corporate_surveys" (
+        "id" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "question" TEXT NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+        "closesAt" TIMESTAMP(3) NOT NULL,
+        "organizationId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "corporate_surveys_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "corporate_surveys" ADD COLUMN IF NOT EXISTS "organizationId" TEXT;`);
+    } catch (colErr: any) {}
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "corporate_surveys_organizationId_idx" ON "corporate_surveys"("organizationId");
     `);
 
     // 5.10. Create memberships table (User 1-to-1 Membership, Membership Many-to-Many Organization)

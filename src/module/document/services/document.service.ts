@@ -4,7 +4,7 @@ import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
 
 export class DocumentService {
-  static async getDocuments(filters: { employeeId?: string; category?: string }) {
+  static async getDocuments(filters: { employeeId?: string; category?: string; organizationId?: string }) {
     let docs = await DocumentRepository.findDocuments(filters);
 
     if (docs.length === 0 && filters.employeeId) {
@@ -12,8 +12,11 @@ export class DocumentService {
         where: { id: filters.employeeId },
       });
       if (employee) {
+        const orgId = filters.organizationId || employee.organizationId || null;
+
         await DocumentRepository.createDocument({
           employeeId: employee.id,
+          organizationId: orgId,
           name: "Aadhaar Card Copy.pdf",
           category: "Identity",
           uploadedOn: "2026-01-15",
@@ -22,6 +25,7 @@ export class DocumentService {
         });
         await DocumentRepository.createDocument({
           employeeId: employee.id,
+          organizationId: orgId,
           name: "PAN Card Copy.pdf",
           category: "Identity",
           uploadedOn: "2026-01-15",
@@ -30,6 +34,7 @@ export class DocumentService {
         });
         await DocumentRepository.createDocument({
           employeeId: employee.id,
+          organizationId: orgId,
           name: "Passport Scan.pdf",
           category: "Identity",
           uploadedOn: "2026-01-16",
@@ -38,6 +43,7 @@ export class DocumentService {
         });
         await DocumentRepository.createDocument({
           employeeId: employee.id,
+          organizationId: orgId,
           name: "Offer Letter Signed.pdf",
           category: "Contract",
           uploadedOn: "2026-01-10",
@@ -52,6 +58,7 @@ export class DocumentService {
     return docs.map((d) => ({
       id: d.id,
       employeeId: d.employeeId,
+      organizationId: d.organizationId,
       name: d.name,
       category: d.category,
       uploadedOn: d.uploadedOn,
@@ -60,18 +67,23 @@ export class DocumentService {
     }));
   }
 
-  static async uploadDocument(data: {
-    employeeId: string;
-    name: string;
-    category: string;
-    expiresOn?: string | null;
-  }) {
+  static async uploadDocument(
+    data: {
+      employeeId: string;
+      name: string;
+      category: string;
+      expiresOn?: string | null;
+    },
+    organizationId?: string
+  ) {
     const employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
     });
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
+
+    const docOrgId = organizationId || employee.organizationId || null;
 
     let status = "Active";
     if (data.expiresOn) {
@@ -87,16 +99,22 @@ export class DocumentService {
 
     return DocumentRepository.createDocument({
       ...data,
+      organizationId: docOrgId,
       uploadedOn: new Date().toISOString().substring(0, 10),
       status,
     });
   }
 
-  static async deleteDocument(id: string) {
+  static async deleteDocument(id: string, organizationId?: string) {
     const doc = await DocumentRepository.findDocumentById(id);
     if (!doc) {
       throw new ErrorResponse("Document not found", statusCode.Not_Found);
     }
+
+    if (organizationId && doc.organizationId && doc.organizationId !== organizationId) {
+      throw new ErrorResponse("You do not have permission to delete documents belonging to another organization", statusCode.Forbidden);
+    }
+
     return DocumentRepository.deleteDocument(id);
   }
 }

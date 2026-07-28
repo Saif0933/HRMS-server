@@ -5,13 +5,14 @@ import { prisma } from "../../../db/prisma.ts";
 
 export class PerformanceService {
   // Goals & KRAs
-  static async getGoals(employeeId?: string) {
-    let goals = await PerformanceRepository.findGoals(employeeId);
+  static async getGoals(employeeId?: string, organizationId?: string) {
+    let goals = await PerformanceRepository.findGoals(employeeId, organizationId);
 
     // Auto-seed default goals if database is empty and we are looking for a specific employee
     if (goals.length === 0 && employeeId) {
       const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
       if (employee) {
+        const empOrgId = organizationId || employee.organizationId || null;
         await PerformanceRepository.createGoal({
           employeeId,
           title: "Deliver Redesigned Core UI Components",
@@ -19,6 +20,7 @@ export class PerformanceService {
           kra: "Development Quality",
           progress: 85,
           status: "In Progress",
+          organizationId: empOrgId,
         });
         await PerformanceRepository.createGoal({
           employeeId,
@@ -27,6 +29,7 @@ export class PerformanceService {
           kra: "System Efficiency",
           progress: 95,
           status: "Completed",
+          organizationId: empOrgId,
         });
         await PerformanceRepository.createGoal({
           employeeId,
@@ -35,19 +38,25 @@ export class PerformanceService {
           kra: "Refactoring & Tech Debt",
           progress: 60,
           status: "In Progress",
+          organizationId: empOrgId,
         });
-        goals = await PerformanceRepository.findGoals(employeeId);
+        goals = await PerformanceRepository.findGoals(employeeId, organizationId);
       }
     }
     return goals;
   }
 
-  static async createGoal(data: { employeeId: string; title: string; weight: string; kra: string }) {
+  static async createGoal(data: { employeeId: string; title: string; weight: string; kra: string }, organizationId?: string) {
     const employee = await prisma.employee.findUnique({ where: { id: data.employeeId } });
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
-    return PerformanceRepository.createGoal(data);
+    const empOrgId = organizationId || employee.organizationId || null;
+
+    return PerformanceRepository.createGoal({
+      ...data,
+      organizationId: empOrgId,
+    });
   }
 
   static async updateGoalProgress(id: string, progress: number, status?: string) {
@@ -60,13 +69,13 @@ export class PerformanceService {
   }
 
   // 360 Feedback
-  static async getFeedbacks(employeeId?: string) {
-    let feedbacks = await PerformanceRepository.findFeedbacks(employeeId);
+  static async getFeedbacks(employeeId?: string, organizationId?: string) {
+    let feedbacks = await PerformanceRepository.findFeedbacks(employeeId, organizationId);
 
-    // Auto-seed feedback reviews for demo purposes if database is empty
     if (feedbacks.length === 0 && employeeId) {
       const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
       if (employee) {
+        const empOrgId = organizationId || employee.organizationId || null;
         await PerformanceRepository.createFeedback({
           employeeId,
           reviewer: "Neha Patel",
@@ -74,6 +83,7 @@ export class PerformanceService {
           rating: 4.5,
           text: "Excellent technical skillset and outstanding dedication to the UI refactor work.",
           date: new Date("2026-06-28"),
+          organizationId: empOrgId,
         });
         await PerformanceRepository.createFeedback({
           employeeId,
@@ -82,79 +92,91 @@ export class PerformanceService {
           rating: 4.2,
           text: "Great collaborator, very open to UX critiques and fast at implementing layouts.",
           date: new Date("2026-06-29"),
+          organizationId: empOrgId,
         });
-        feedbacks = await PerformanceRepository.findFeedbacks(employeeId);
+        feedbacks = await PerformanceRepository.findFeedbacks(employeeId, organizationId);
       }
     }
     return feedbacks;
   }
 
-  static async createFeedback(data: { employeeId: string; reviewer: string; relation: string; rating: number; text: string }) {
+  static async createFeedback(data: { employeeId: string; reviewer: string; relation: string; rating: number; text: string }, organizationId?: string) {
     const employee = await prisma.employee.findUnique({ where: { id: data.employeeId } });
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
-    return PerformanceRepository.createFeedback(data);
+    const empOrgId = organizationId || employee.organizationId || null;
+
+    return PerformanceRepository.createFeedback({
+      ...data,
+      organizationId: empOrgId,
+    });
   }
 
   // Appraisals & Bell Curve
-  static async saveAppraisal(employeeId: string, cycle: string, rating: number) {
+  static async saveAppraisal(employeeId: string, cycle: string, rating: number, organizationId?: string) {
     const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
-    return PerformanceRepository.upsertAppraisal(employeeId, cycle, rating);
+    const empOrgId = organizationId || employee.organizationId || undefined;
+
+    return PerformanceRepository.upsertAppraisal(employeeId, cycle, rating, empOrgId);
   }
 
-  static async getBellCurveDistribution(cycle: string) {
-    const appraisals = await PerformanceRepository.findAppraisals(cycle);
+  static async getBellCurveDistribution(cycle: string, organizationId?: string) {
+    const appraisals = await PerformanceRepository.findAppraisals(cycle, organizationId);
 
-    // Auto-seed appraisal ratings if empty to generate a beautiful, realistic bell curve immediately
     if (appraisals.length === 0) {
-      const employees = await prisma.employee.findMany();
+      const empWhere: any = {};
+      if (organizationId) empWhere.organizationId = organizationId;
+
+      const employees = await prisma.employee.findMany({ where: empWhere });
       if (employees.length > 0) {
-        // Distribute ratings standardly: 10% (1), 20% (2), 50% (3), 15% (4), 5% (5)
         const ratingsDistribution = [1, 2, 2, 3, 3, 3, 3, 3, 4, 4, 5];
         for (let i = 0; i < employees.length; i++) {
           const emp = employees[i];
           if (emp) {
             const rating = ratingsDistribution[i % ratingsDistribution.length] || 3;
-            await PerformanceRepository.upsertAppraisal(emp.id, cycle, rating);
+            await PerformanceRepository.upsertAppraisal(emp.id, cycle, rating, organizationId || emp.organizationId || undefined);
           }
         }
       }
     }
 
-    return PerformanceRepository.getRatingFrequencies(cycle);
+    return PerformanceRepository.getRatingFrequencies(cycle, organizationId);
   }
 
   // Monthly Performance Ratings
-  static async getMonthlyRatings(employeeId?: string) {
+  static async getMonthlyRatings(employeeId?: string, organizationId?: string) {
     let targetEmployeeId = employeeId;
     if (employeeId) {
       let employee = await prisma.employee.findUnique({ where: { id: employeeId } });
       if (!employee) {
-        employee = await prisma.employee.findFirst({
-          where: {
-            OR: [
-              { id: employeeId },
-              { userId: employeeId },
-              { email: employeeId }
-            ]
-          }
-        });
+        const empWhere: any = {
+          OR: [
+            { id: employeeId },
+            { userId: employeeId },
+            { email: employeeId }
+          ]
+        };
+        if (organizationId) empWhere.organizationId = organizationId;
+        employee = await prisma.employee.findFirst({ where: empWhere });
       }
       if (employee) {
         targetEmployeeId = employee.id;
       }
     }
 
-    let ratings = await PerformanceRepository.findMonthlyRatings(targetEmployeeId);
+    let ratings = await PerformanceRepository.findMonthlyRatings(targetEmployeeId, organizationId);
 
-    // Auto-seed if empty for the requested employee
     if (ratings.length === 0 && targetEmployeeId) {
-      const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } }) || await prisma.employee.findFirst();
+      const empWhere: any = {};
+      if (organizationId) empWhere.organizationId = organizationId;
+
+      const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } }) || await prisma.employee.findFirst({ where: empWhere });
       if (employee) {
+        const empOrgId = organizationId || employee.organizationId || null;
         const empSeed = (employee.id || employee.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 5;
         const seedData = [
           { month: "July 2026", rating: Number((4.4 + (empSeed * 0.1)).toFixed(1)), status: "EXCEEDS EXPECTATIONS", tasks: "98%", quality: "4.7/5", teamwork: "4.6/5", feedback: `Outstanding performance in ${employee.designation || 'Engineering'} deliverables.`, givenBy: "Super Admin" },
@@ -166,49 +188,52 @@ export class PerformanceService {
         for (const item of seedData) {
           await PerformanceRepository.createMonthlyRating({
             employeeId: employee.id,
+            organizationId: empOrgId,
             ...item
           });
         }
-        ratings = await PerformanceRepository.findMonthlyRatings(employee.id);
+        ratings = await PerformanceRepository.findMonthlyRatings(employee.id, organizationId);
       }
     }
     return ratings;
   }
 
-  static async createMonthlyRating(data: {
-    employeeId: string;
-    month: string;
-    rating: number;
-    status?: string | null;
-    tasks?: string | null;
-    quality?: string | null;
-    teamwork?: string | null;
-    feedback?: string | null;
-    givenBy?: string | null;
-  }) {
-    // 1. Try to find the exact employee by ID
+  static async createMonthlyRating(
+    data: {
+      employeeId: string;
+      month: string;
+      rating: number;
+      status?: string | null;
+      tasks?: string | null;
+      quality?: string | null;
+      teamwork?: string | null;
+      feedback?: string | null;
+      givenBy?: string | null;
+    },
+    organizationId?: string
+  ) {
     let employee = await prisma.employee.findUnique({ where: { id: data.employeeId } });
 
-    // 2. If not found by ID, try searching by userId, email, or name
     if (!employee) {
-      employee = await prisma.employee.findFirst({
-        where: {
-          OR: [
-            { id: data.employeeId },
-            { userId: data.employeeId },
-            { email: data.employeeId },
-            { name: { equals: data.employeeId, mode: "insensitive" } }
-          ]
-        }
-      });
+      const empWhere: any = {
+        OR: [
+          { id: data.employeeId },
+          { userId: data.employeeId },
+          { email: data.employeeId },
+          { name: { equals: data.employeeId, mode: "insensitive" } }
+        ]
+      };
+      if (organizationId) empWhere.organizationId = organizationId;
+
+      employee = await prisma.employee.findFirst({ where: empWhere });
     }
 
-    // 3. Fallback: If still no employee record matches, pick the first existing employee in database
     if (!employee) {
-      employee = await prisma.employee.findFirst();
+      const empWhere: any = {};
+      if (organizationId) empWhere.organizationId = organizationId;
+      employee = await prisma.employee.findFirst({ where: empWhere });
     }
 
-    // 4. If DB is completely empty of employees, create a default employee record to maintain foreign key integrity
     if (!employee) {
       employee = await prisma.employee.create({
         data: {
@@ -218,10 +243,13 @@ export class PerformanceService {
           joiningDate: new Date(),
           status: "PROBATION",
           designation: "Software Engineer",
-          location: "Mumbai"
+          location: "Mumbai",
+          organizationId: organizationId || null,
         }
       });
     }
+
+    const empOrgId = organizationId || employee.organizationId || null;
 
     const payload = {
       employeeId: employee.id,
@@ -233,6 +261,7 @@ export class PerformanceService {
       teamwork: data.teamwork || "4.5/5",
       feedback: data.feedback || "Evaluated and submitted by Super Admin.",
       givenBy: data.givenBy || "Super Admin",
+      organizationId: empOrgId,
     };
 
     return PerformanceRepository.createMonthlyRating(payload);

@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
 import { PerformanceService } from "../services/performance.service.ts";
 import { SuccessResponse } from "../../../utils/response.util.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
@@ -12,9 +13,9 @@ import {
 } from "../validators/performance.validator.ts";
 
 // Goals & KRAs
-export const getGoals = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getGoals = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
-  const goals = await PerformanceService.getGoals(employeeId);
+  const goals = await PerformanceService.getGoals(employeeId, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -24,13 +25,13 @@ export const getGoals = asyncHandler(async (req: Request, res: Response, next: N
   );
 });
 
-export const createGoal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createGoal = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createGoalSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const goal = await PerformanceService.createGoal(parsed.data);
+  const goal = await PerformanceService.createGoal(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -40,7 +41,7 @@ export const createGoal = asyncHandler(async (req: Request, res: Response, next:
   );
 });
 
-export const updateGoalProgress = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const updateGoalProgress = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const parsed = updateGoalProgressSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -58,9 +59,9 @@ export const updateGoalProgress = asyncHandler(async (req: Request, res: Respons
 });
 
 // 360 Feedback
-export const getFeedbacks = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getFeedbacks = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
-  const feedbacks = await PerformanceService.getFeedbacks(employeeId);
+  const feedbacks = await PerformanceService.getFeedbacks(employeeId, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -70,13 +71,13 @@ export const getFeedbacks = asyncHandler(async (req: Request, res: Response, nex
   );
 });
 
-export const createFeedback = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createFeedback = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createFeedbackSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const feedback = await PerformanceService.createFeedback(parsed.data);
+  const feedback = await PerformanceService.createFeedback(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -87,7 +88,7 @@ export const createFeedback = asyncHandler(async (req: Request, res: Response, n
 });
 
 // Appraisals & Bell Curve
-export const saveAppraisal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const saveAppraisal = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = saveAppraisalSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
@@ -96,7 +97,8 @@ export const saveAppraisal = asyncHandler(async (req: Request, res: Response, ne
   const appraisal = await PerformanceService.saveAppraisal(
     parsed.data.employeeId,
     parsed.data.cycle,
-    parsed.data.rating
+    parsed.data.rating,
+    req.user?.organizationId
   );
 
   return SuccessResponse(
@@ -107,9 +109,9 @@ export const saveAppraisal = asyncHandler(async (req: Request, res: Response, ne
   );
 });
 
-export const getBellCurveDistribution = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getBellCurveDistribution = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const cycle = (req.query.cycle as string) || "2026-Q2";
-  const distribution = await PerformanceService.getBellCurveDistribution(cycle);
+  const distribution = await PerformanceService.getBellCurveDistribution(cycle, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -120,9 +122,9 @@ export const getBellCurveDistribution = asyncHandler(async (req: Request, res: R
 });
 
 // Monthly Performance Ratings (Super Admin / Employee Management)
-export const getMonthlyRatings = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getMonthlyRatings = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
-  const ratings = await PerformanceService.getMonthlyRatings(employeeId);
+  const ratings = await PerformanceService.getMonthlyRatings(employeeId, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -132,13 +134,13 @@ export const getMonthlyRatings = asyncHandler(async (req: Request, res: Response
   );
 });
 
-export const createMonthlyRating = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createMonthlyRating = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createMonthlyRatingSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const rating = await PerformanceService.createMonthlyRating(parsed.data);
+  const rating = await PerformanceService.createMonthlyRating(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,

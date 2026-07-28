@@ -5,10 +5,10 @@ import { prisma } from "../../../db/prisma.ts";
 
 export class PayrollService {
   // Get or Create Payroll Cycle
-  static async getOrCreateCycle(month: string, year: number) {
-    let cycle = await PayrollRepository.findCycle(month, year);
+  static async getOrCreateCycle(month: string, year: number, organizationId?: string) {
+    let cycle = await PayrollRepository.findCycle(month, year, organizationId);
     if (!cycle) {
-      cycle = await PayrollRepository.createCycle(month, year);
+      cycle = await PayrollRepository.createCycle(month, year, organizationId);
     }
 
     const runs = await PayrollRepository.findRunsForCycle(cycle.id);
@@ -40,48 +40,39 @@ export class PayrollService {
   }
 
   // Update Cycle Status and Generate Salary Runs
-  static async updateCycleStatus(id: string, status: string) {
+  static async updateCycleStatus(id: string, status: string, organizationId?: string) {
     const cycle = await prisma.payrollCycle.findUnique({ where: { id } });
     if (!cycle) {
       throw new ErrorResponse("Payroll cycle not found", statusCode.Not_Found);
     }
 
-    // If moving to PROCESSING_SALARIES, compute salary runs for all ACTIVE employees
+    const cycleOrgId = organizationId || cycle.organizationId || undefined;
+
+    // If moving to PROCESSING_SALARIES, compute salary runs for all ACTIVE employees in the organization
     if (status === "PROCESSING_SALARIES" && cycle.status === "PENDING_ATTENDANCE_LOCK") {
-      // 1. Get all ACTIVE employees
+      const empWhere: any = { status: "ACTIVE" };
+      if (cycleOrgId) empWhere.organizationId = cycleOrgId;
+
       const employees = await prisma.employee.findMany({
-        where: { status: "ACTIVE" },
+        where: empWhere,
       });
 
-      // 2. Fetch exclusions
       const exclusions = await PayrollRepository.findExclusions(cycle.id);
       const excludedIds = exclusions.map((ex) => ex.employeeId);
 
-      // 3. Delete any stale runs first
       await PayrollRepository.deleteRunsForCycle(cycle.id);
 
-      // 4. Compute and create run for each employee
       for (const emp of employees) {
         const isExcluded = excludedIds.includes(emp.id);
         
-        // Base salary calculations
         const basic = emp.basic || 15000;
         const hra = emp.hra || 6000;
         const allowance = emp.allowance || 4000;
 
-        // PF deduction: 12% of basic (capped at 15000 EPF limit)
         const pf = Math.round(Math.min(basic, 15000) * 0.12);
-        
-        // Professional tax (PT) standard ₹200
         const pt = 200;
-
-        // Income tax (TDS) estimation: 10% of basic if basic > 30000, else 0
         const tds = basic > 30000 ? Math.round(basic * 0.10) : 0;
-
-        // Deductions sum
         const deductions = pf + pt + tds;
-
-        // Net salary
         const netSalary = (basic + hra + allowance) - deductions;
 
         await PayrollRepository.createRun({
@@ -97,11 +88,11 @@ export class PayrollService {
           arrear: 0,
           deductions,
           netSalary,
+          organizationId: cycleOrgId || null,
           status: isExcluded ? "HELD" : "PENDING",
         });
       }
     } else if (status === "DISBURSED") {
-      // Mark all runs as PAID unless HELD
       const exclusions = await PayrollRepository.findExclusions(cycle.id);
       const excludedIds = exclusions.map((ex) => ex.employeeId);
 
@@ -115,15 +106,17 @@ export class PayrollService {
     }
 
     const updated = await PayrollRepository.updateCycleStatus(id, status);
-    return this.getOrCreateCycle(updated.month, updated.year);
+    return this.getOrCreateCycle(updated.month, updated.year, cycleOrgId);
   }
 
   // Calculate Arrears
-  static async calculateArrears(cycleId: string) {
+  static async calculateArrears(cycleId: string, organizationId?: string) {
     const cycle = await prisma.payrollCycle.findUnique({ where: { id: cycleId } });
     if (!cycle) {
       throw new ErrorResponse("Payroll cycle not found", statusCode.Not_Found);
     }
+
+    const cycleOrgId = organizationId || cycle.organizationId || undefined;
 
     const runs = await PayrollRepository.findRunsForCycle(cycle.id);
     const exclusions = await PayrollRepository.findExclusions(cycle.id);
@@ -131,7 +124,6 @@ export class PayrollService {
 
     for (const run of runs) {
       if (!excludedIds.includes(run.employeeId)) {
-        // Mock arrear: 5% of basic salary
         const arrear = Math.round(run.basic * 0.05);
         const netSalary = (run.basic + run.hra + run.allowance + run.bonus + arrear) - run.deductions;
 
@@ -142,17 +134,17 @@ export class PayrollService {
       }
     }
 
-    return this.getOrCreateCycle(cycle.month, cycle.year);
+    return this.getOrCreateCycle(cycle.month, cycle.year, cycleOrgId);
   }
 
   // Bulk salary revisions
-  static async applyBulkRevision(incrementPercentage: number, departmentId?: string | null) {
-    // 1. Get all employees in the department (or all employees if departmentId is not provided)
+  static async applyBulkRevision(incrementPercentage: number, departmentId?: string | null, organizationId?: string) {
+    const empWhere: any = { status: "ACTIVE" };
+    if (departmentId) empWhere.departmentId = departmentId;
+    if (organizationId) empWhere.organizationId = organizationId;
+
     const employees = await prisma.employee.findMany({
-      where: {
-        status: "ACTIVE",
-        departmentId: departmentId || undefined,
-      },
+      where: empWhere,
     });
 
     if (employees.length === 0) {
@@ -185,41 +177,42 @@ export class PayrollService {
   }
 
   // Toggle Hold / Stop Payment
-  static async toggleStopPayment(employeeId: string, cycleId: string, reason?: string | null) {
+  static async toggleStopPayment(employeeId: string, cycleId: string, reason?: string | null, organizationId?: string) {
     const cycle = await prisma.payrollCycle.findUnique({ where: { id: cycleId } });
     if (!cycle) {
       throw new ErrorResponse("Payroll cycle not found", statusCode.Not_Found);
     }
 
+    const cycleOrgId = organizationId || cycle.organizationId || undefined;
+
     const existing = await PayrollRepository.findExclusion(employeeId, cycleId);
     if (existing) {
       await PayrollRepository.deleteExclusion(employeeId, cycleId);
       
-      // Update run status back to PENDING if run exists
       const run = await PayrollRepository.findRun(employeeId, cycleId);
       if (run) {
         await PayrollRepository.updateRun(run.id, { status: "PENDING" });
       }
     } else {
-      await PayrollRepository.createExclusion(employeeId, cycleId, reason || "Hold by admin request");
+      await PayrollRepository.createExclusion(employeeId, cycleId, reason || "Hold by admin request", cycleOrgId);
       
-      // Update run status to HELD if run exists
       const run = await PayrollRepository.findRun(employeeId, cycleId);
       if (run) {
         await PayrollRepository.updateRun(run.id, { status: "HELD" });
       }
     }
 
-    return this.getOrCreateCycle(cycle.month, cycle.year);
+    return this.getOrCreateCycle(cycle.month, cycle.year, cycleOrgId);
   }
 
   // Apply Loan/Advance
-  static async applyLoan(employeeId: string, principal: number, emi: number, purpose?: string | null) {
-    // Check if employee exists
+  static async applyLoan(employeeId: string, principal: number, emi: number, purpose?: string | null, organizationId?: string) {
     const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
+
+    const loanOrgId = organizationId || employee.organizationId || null;
 
     const loan = await PayrollRepository.createLoan({
       employeeId,
@@ -227,10 +220,10 @@ export class PayrollService {
       balance: principal,
       emi,
       purpose,
+      organizationId: loanOrgId,
       status: "ACTIVE",
     });
 
-    // Create initial transaction for disbursement
     await PayrollRepository.createLoanTransaction({
       loanId: loan.id,
       amount: principal,
@@ -241,18 +234,23 @@ export class PayrollService {
   }
 
   // Get Loans
-  static async getLoans(employeeId?: string) {
-    return PayrollRepository.findLoans(employeeId);
+  static async getLoans(employeeId?: string, organizationId?: string) {
+    return PayrollRepository.findLoans(employeeId, organizationId);
   }
 
   // Save Tax Declaration
-  static async saveTaxDeclaration(employeeId: string, financialYear: string, declarationData: any) {
+  static async saveTaxDeclaration(employeeId: string, financialYear: string, declarationData: any, organizationId?: string) {
     const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
 
-    return PayrollRepository.upsertTaxDeclaration(employeeId, financialYear, declarationData);
+    const decOrgId = organizationId || employee.organizationId || null;
+
+    return PayrollRepository.upsertTaxDeclaration(employeeId, financialYear, {
+      ...declarationData,
+      organizationId: decOrgId,
+    });
   }
 
   // Get Tax Declaration

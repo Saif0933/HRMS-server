@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
 import { RecruitmentService } from "../services/recruitment.service.ts";
 import { SuccessResponse } from "../../../utils/response.util.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
@@ -9,8 +10,8 @@ import {
   updateCandidateChecklistSchema,
 } from "../validators/recruitment.validator.ts";
 
-export const getRequisitions = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const jobs = await RecruitmentService.getRequisitions();
+export const getRequisitions = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const jobs = await RecruitmentService.getRequisitions(req.user?.organizationId);
   return SuccessResponse(
     res,
     "Job requisitions retrieved successfully",
@@ -19,13 +20,13 @@ export const getRequisitions = asyncHandler(async (req: Request, res: Response, 
   );
 });
 
-export const createRequisition = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createRequisition = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createRequisitionSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const job = await RecruitmentService.createRequisition(parsed.data);
+  const job = await RecruitmentService.createRequisition(parsed.data, req.user?.organizationId);
   return SuccessResponse(
     res,
     "Job requisition created successfully",
@@ -34,8 +35,8 @@ export const createRequisition = asyncHandler(async (req: Request, res: Response
   );
 });
 
-export const getCandidates = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const candidates = await RecruitmentService.getCandidates();
+export const getCandidates = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const candidates = await RecruitmentService.getCandidates(req.user?.organizationId);
   return SuccessResponse(
     res,
     "Candidates retrieved successfully",
@@ -44,7 +45,7 @@ export const getCandidates = asyncHandler(async (req: Request, res: Response, ne
   );
 });
 
-export const advanceCandidate = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const advanceCandidate = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const parsed = advanceCandidateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -61,7 +62,7 @@ export const advanceCandidate = asyncHandler(async (req: Request, res: Response,
 });
 
 export const updateCandidateChecklist = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const id = req.params.id as string;
     const parsed = updateCandidateChecklistSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -78,7 +79,7 @@ export const updateCandidateChecklist = asyncHandler(
   }
 );
 
-export const rejectCandidate = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const rejectCandidate = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   await RecruitmentService.rejectCandidate(id);
   return SuccessResponse(

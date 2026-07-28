@@ -1,8 +1,14 @@
 import { prisma } from "../../../db/prisma.ts";
 
 export class HelpDeskRepository {
-  static async findTickets() {
+  static async findTickets(organizationId?: string) {
+    const where: any = {};
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+
     return prisma.helpTicket.findMany({
+      where,
       include: {
         employee: {
           select: {
@@ -17,6 +23,7 @@ export class HelpDeskRepository {
 
   static async createTicket(data: {
     employeeId: string;
+    organizationId?: string | null;
     subject: string;
     description: string;
     category: string;

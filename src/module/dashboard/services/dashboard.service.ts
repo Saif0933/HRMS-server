@@ -1,12 +1,12 @@
 import { DashboardRepository } from "../repo/dashboard.repo.ts";
 
 export class DashboardService {
-  static async getDashboardData() {
-    const employees = await DashboardRepository.getEmployeesCount();
-    const pendingLeaves = await DashboardRepository.getPendingLeaves();
-    const pendingClaims = await DashboardRepository.getPendingClaims();
-    const holidays = await DashboardRepository.getHolidays();
-    const auditLogs = await DashboardRepository.getRecentAuditLogs();
+  static async getDashboardData(organizationId?: string) {
+    const employees = await DashboardRepository.getEmployeesCount(organizationId);
+    const pendingLeaves = await DashboardRepository.getPendingLeaves(organizationId);
+    const pendingClaims = await DashboardRepository.getPendingClaims(organizationId);
+    const holidays = await DashboardRepository.getHolidays(organizationId);
+    const auditLogs = await DashboardRepository.getRecentAuditLogs(organizationId);
 
     // 1. Calculate employee status counts
     const totalEmployees = employees.length;
@@ -112,7 +112,13 @@ export class DashboardService {
     };
   }
 
-  static async logAction(user: string, action: string, module: string, details: string) {
-    return DashboardRepository.createAuditLog({ user, action, module, details });
+  static async logAction(
+    user: string,
+    action: string,
+    module: string,
+    details: string,
+    organizationId?: string | null
+  ) {
+    return DashboardRepository.createAuditLog({ user, action, module, details, organizationId });
   }
 }

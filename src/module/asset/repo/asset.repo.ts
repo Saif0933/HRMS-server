@@ -1,8 +1,14 @@
 import { prisma } from "../../../db/prisma.ts";
 
 export class AssetRepository {
-  static async findAssets() {
+  static async findAssets(organizationId?: string) {
+    const where: any = {};
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+
     return prisma.asset.findMany({
+      where,
       include: {
         employee: {
           select: {
@@ -20,6 +26,7 @@ export class AssetRepository {
     category: string;
     serial: string;
     employeeId?: string | null;
+    organizationId?: string | null;
     status: string;
   }) {
     return prisma.asset.create({

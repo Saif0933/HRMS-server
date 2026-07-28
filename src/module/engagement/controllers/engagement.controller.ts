@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
 import { EngagementService } from "../services/engagement.service.ts";
 import { SuccessResponse } from "../../../utils/response.util.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
@@ -13,9 +14,9 @@ import {
 } from "../validators/engagement.validator.ts";
 
 // Posts & Comments
-export const getPosts = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getPosts = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
-  const posts = await EngagementService.getPosts(employeeId);
+  const posts = await EngagementService.getPosts(employeeId, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -25,13 +26,13 @@ export const getPosts = asyncHandler(async (req: Request, res: Response, next: N
   );
 });
 
-export const createPost = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createPost = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createPostSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const post = await EngagementService.createPost(parsed.data);
+  const post = await EngagementService.createPost(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -41,7 +42,7 @@ export const createPost = asyncHandler(async (req: Request, res: Response, next:
   );
 });
 
-export const addComment = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const addComment = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createCommentSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
@@ -57,7 +58,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response, next:
   );
 });
 
-export const toggleLike = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const toggleLike = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = toggleLikeSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
@@ -73,7 +74,7 @@ export const toggleLike = asyncHandler(async (req: Request, res: Response, next:
   );
 });
 
-export const addReaction = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const addReaction = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = submitReactionSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
@@ -94,7 +95,7 @@ export const addReaction = asyncHandler(async (req: Request, res: Response, next
 });
 
 // Mood Gauge
-export const submitMood = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const submitMood = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = submitMoodSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
@@ -114,8 +115,8 @@ export const submitMood = asyncHandler(async (req: Request, res: Response, next:
   );
 });
 
-export const getMoodDistribution = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const distribution = await EngagementService.getMoodDistribution();
+export const getMoodDistribution = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const distribution = await EngagementService.getMoodDistribution(req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -126,9 +127,9 @@ export const getMoodDistribution = asyncHandler(async (req: Request, res: Respon
 });
 
 // Surveys
-export const getSurveys = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getSurveys = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
-  const surveys = await EngagementService.getSurveys(employeeId);
+  const surveys = await EngagementService.getSurveys(employeeId, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -138,7 +139,7 @@ export const getSurveys = asyncHandler(async (req: Request, res: Response, next:
   );
 });
 
-export const submitSurveyResponse = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const submitSurveyResponse = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = submitSurveyResponseSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);

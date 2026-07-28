@@ -1,13 +1,16 @@
 import { prisma } from "../../../db/prisma.ts";
 
 export class TravelRepository {
-  static async findClaims(filters: { employeeId?: string; status?: string }) {
+  static async findClaims(filters: { employeeId?: string; status?: string; organizationId?: string }) {
     const whereClause: any = {};
     if (filters.employeeId) {
       whereClause.employeeId = filters.employeeId;
     }
     if (filters.status) {
       whereClause.status = filters.status;
+    }
+    if (filters.organizationId) {
+      whereClause.organizationId = filters.organizationId;
     }
 
     return prisma.travelClaim.findMany({
@@ -32,6 +35,7 @@ export class TravelRepository {
     date: string;
     reason: string;
     receiptUrl?: string | null;
+    organizationId?: string | null;
   }) {
     return prisma.travelClaim.create({
       data,

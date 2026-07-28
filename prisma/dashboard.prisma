@@ -1,22 +1,28 @@
 model AuditLog {
-  id        String   @id @default(cuid())
-  user      String
-  action    String
-  module    String
-  details   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String        @id @default(cuid())
+  user           String
+  action         String
+  module         String
+  details        String
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@map("audit_logs")
 }
 
 model Holiday {
-  id        String   @id @default(cuid())
-  name      String
-  type      String   // e.g. National, Regional, Company
-  date      DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String        @id @default(cuid())
+  name           String
+  type           String        // e.g. National, Regional, Company
+  date           DateTime
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@map("holidays")
 }

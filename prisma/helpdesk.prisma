@@ -1,16 +1,20 @@
 model HelpTicket {
-  id           String   @id @default(cuid())
-  employeeId   String
-  subject      String
-  description  String
-  category     String // IT, HR, Facilities, Finance
-  priority     String // High, Medium, Low
-  status       String   @default("Open") // Open, Pending, Resolved
-  slaHoursLeft Int
-  date         String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String        @id @default(cuid())
+  employeeId     String
+  organizationId String?
+  subject        String
+  description    String
+  category       String        // IT, HR, Facilities, Finance
+  priority       String        // High, Medium, Low
+  status         String        @default("Open") // Open, Pending, Resolved
+  slaHoursLeft   Int
+  date           String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
+  @@index([employeeId])
   @@map("help_tickets")
 }

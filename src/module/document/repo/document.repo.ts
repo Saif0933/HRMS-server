@@ -1,8 +1,11 @@
 import { prisma } from "../../../db/prisma.ts";
 
 export class DocumentRepository {
-  static async findDocuments(filters: { employeeId?: string; category?: string }) {
+  static async findDocuments(filters: { employeeId?: string; category?: string; organizationId?: string }) {
     const whereClause: any = {};
+    if (filters.organizationId) {
+      whereClause.organizationId = filters.organizationId;
+    }
     if (filters.employeeId) {
       whereClause.employeeId = filters.employeeId;
     }
@@ -18,6 +21,7 @@ export class DocumentRepository {
 
   static async createDocument(data: {
     employeeId: string;
+    organizationId?: string | null;
     name: string;
     category: string;
     uploadedOn: string;

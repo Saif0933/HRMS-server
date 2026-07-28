@@ -1,17 +1,20 @@
 model EngagementPost {
-  id          String                   @id @default(cuid())
-  authorName  String
-  authorRole  String
-  authorAvatar String?
-  content     String
-  image       String?
-  likesCount  Int                      @default(0)
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
-  comments    EngagementComment[]
-  likes       EngagementPostLike[]
-  reactions   EngagementPostReaction[]
+  id             String                   @id @default(cuid())
+  authorName     String
+  authorRole     String
+  authorAvatar   String?
+  content        String
+  image          String?
+  likesCount     Int                      @default(0)
+  organizationId String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  comments       EngagementComment[]
+  likes          EngagementPostLike[]
+  reactions      EngagementPostReaction[]
+  organization   Organization?            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@map("engagement_posts")
 }
 
@@ -62,14 +65,17 @@ model EngagementMood {
 }
 
 model CorporateSurvey {
-  id        String                    @id @default(cuid())
-  title     String
-  question  String
-  status    String                    @default("ACTIVE") // ACTIVE, CLOSED
-  closesAt  DateTime
-  createdAt DateTime                  @default(now())
-  responses CorporateSurveyResponse[]
+  id             String                    @id @default(cuid())
+  title          String
+  question       String
+  status         String                    @default("ACTIVE") // ACTIVE, CLOSED
+  closesAt       DateTime
+  organizationId String?
+  createdAt      DateTime                  @default(now())
+  responses      CorporateSurveyResponse[]
+  organization   Organization?             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@map("corporate_surveys")
 }
 

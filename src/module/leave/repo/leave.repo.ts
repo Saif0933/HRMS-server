@@ -8,14 +8,24 @@ export class LeaveRepository {
     });
   }
 
-  static async findTypeByName(name: string) {
-    return prisma.leaveType.findUnique({
+  static async findTypeByName(name: string, organizationId?: string) {
+    if (organizationId) {
+      return prisma.leaveType.findUnique({
+        where: { name_organizationId: { name, organizationId } },
+      });
+    }
+    return prisma.leaveType.findFirst({
       where: { name },
     });
   }
 
-  static async findTypeByCode(code: string) {
-    return prisma.leaveType.findUnique({
+  static async findTypeByCode(code: string, organizationId?: string) {
+    if (organizationId) {
+      return prisma.leaveType.findUnique({
+        where: { code_organizationId: { code, organizationId } },
+      });
+    }
+    return prisma.leaveType.findFirst({
       where: { code },
     });
   }
@@ -26,9 +36,17 @@ export class LeaveRepository {
     });
   }
 
-  static async findAllTypes(activeOnly = false) {
+  static async findAllTypes(activeOnly = false, organizationId?: string) {
+    const where: any = {};
+    if (activeOnly) {
+      where.isActive = true;
+    }
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+
     return prisma.leaveType.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
+      where,
       orderBy: { name: "asc" },
     });
   }
@@ -81,12 +99,14 @@ export class LeaveRepository {
     });
   }
 
-  static async findAllAllocations(filters: { employeeId?: string; year?: number }) {
+  static async findAllAllocations(filters: { employeeId?: string; year?: number; organizationId?: string }) {
+    const where: any = {};
+    if (filters.employeeId) where.employeeId = filters.employeeId;
+    if (filters.year) where.year = filters.year;
+    if (filters.organizationId) where.organizationId = filters.organizationId;
+
     return prisma.leaveAllocation.findMany({
-      where: {
-        employeeId: filters.employeeId,
-        year: filters.year,
-      },
+      where,
       include: {
         leaveType: true,
         employee: {
@@ -155,8 +175,10 @@ export class LeaveRepository {
     employeeId?: string;
     leaveTypeId?: string;
     status?: any;
+    organizationId?: string;
   }) {
     const whereClause: any = {};
+    if (filters.organizationId) whereClause.organizationId = filters.organizationId;
     if (filters.employeeId) whereClause.employeeId = filters.employeeId;
     if (filters.leaveTypeId) whereClause.leaveTypeId = filters.leaveTypeId;
     if (filters.status) whereClause.status = filters.status;

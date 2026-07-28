@@ -2,9 +2,13 @@ import { prisma } from "../../../db/prisma.ts";
 
 export class PerformanceRepository {
   // Goals & KRAs
-  static async findGoals(employeeId?: string) {
+  static async findGoals(employeeId?: string, organizationId?: string) {
+    const where: any = {};
+    if (employeeId) where.employeeId = employeeId;
+    if (organizationId) where.organizationId = organizationId;
+
     return prisma.performanceGoal.findMany({
-      where: employeeId ? { employeeId } : undefined,
+      where,
       include: { employee: true },
       orderBy: { createdAt: "desc" },
     });
@@ -30,9 +34,13 @@ export class PerformanceRepository {
   }
 
   // 360 Feedback
-  static async findFeedbacks(employeeId?: string) {
+  static async findFeedbacks(employeeId?: string, organizationId?: string) {
+    const where: any = {};
+    if (employeeId) where.employeeId = employeeId;
+    if (organizationId) where.organizationId = organizationId;
+
     return prisma.performanceFeedback.findMany({
-      where: employeeId ? { employeeId } : undefined,
+      where,
       include: { employee: true },
       orderBy: { date: "desc" },
     });
@@ -45,31 +53,38 @@ export class PerformanceRepository {
   }
 
   // Appraisals & Bell Curve
-  static async findAppraisals(cycle: string) {
+  static async findAppraisals(cycle: string, organizationId?: string) {
+    const where: any = { cycle };
+    if (organizationId) where.organizationId = organizationId;
+
     return prisma.performanceAppraisal.findMany({
-      where: { cycle },
+      where,
       include: { employee: true },
     });
   }
 
-  static async upsertAppraisal(employeeId: string, cycle: string, rating: number) {
+  static async upsertAppraisal(employeeId: string, cycle: string, rating: number, organizationId?: string) {
     return prisma.performanceAppraisal.upsert({
       where: {
         employeeId_cycle: { employeeId, cycle },
       },
-      update: { rating },
+      update: { rating, organizationId: organizationId || undefined },
       create: {
         employeeId,
         cycle,
         rating,
         status: "COMPLETED",
+        organizationId: organizationId || null,
       },
     });
   }
 
-  static async getRatingFrequencies(cycle: string) {
+  static async getRatingFrequencies(cycle: string, organizationId?: string) {
+    const where: any = { cycle };
+    if (organizationId) where.organizationId = organizationId;
+
     const appraisals = await prisma.performanceAppraisal.findMany({
-      where: { cycle },
+      where,
       select: { rating: true },
     });
 
@@ -91,9 +106,13 @@ export class PerformanceRepository {
   }
 
   // Monthly Performance Ratings
-  static async findMonthlyRatings(employeeId?: string) {
+  static async findMonthlyRatings(employeeId?: string, organizationId?: string) {
+    const where: any = {};
+    if (employeeId) where.employeeId = employeeId;
+    if (organizationId) where.organizationId = organizationId;
+
     return prisma.performanceRating.findMany({
-      where: employeeId ? { employeeId } : undefined,
+      where,
       include: { employee: true },
       orderBy: { createdAt: "desc" },
     });

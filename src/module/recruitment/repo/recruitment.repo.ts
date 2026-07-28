@@ -1,13 +1,17 @@
 import { prisma } from "../../../db/prisma.ts";
 
 export class RecruitmentRepository {
-  static async findRequisitions() {
+  static async findRequisitions(organizationId?: string) {
+    const where: any = {};
+    if (organizationId) where.organizationId = organizationId;
+
     return prisma.jobRequisition.findMany({
+      where,
       orderBy: { createdAt: "desc" },
     });
   }
 
-  static async createRequisition(data: { title: string; department: string }) {
+  static async createRequisition(data: { title: string; department: string; organizationId?: string | null }) {
     return prisma.jobRequisition.create({
       data,
     });
@@ -24,8 +28,12 @@ export class RecruitmentRepository {
     });
   }
 
-  static async findCandidates() {
+  static async findCandidates(organizationId?: string) {
+    const where: any = {};
+    if (organizationId) where.organizationId = organizationId;
+
     return prisma.candidate.findMany({
+      where,
       orderBy: { createdAt: "asc" },
     });
   }
@@ -42,6 +50,7 @@ export class RecruitmentRepository {
     experience: string;
     email: string;
     stage?: string;
+    organizationId?: string | null;
   }) {
     return prisma.candidate.create({
       data,

@@ -4,18 +4,18 @@ import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
 
 export class RecruitmentService {
-  static async getRequisitions() {
-    let jobs = await RecruitmentRepository.findRequisitions();
+  static async getRequisitions(organizationId?: string) {
+    let jobs = await RecruitmentRepository.findRequisitions(organizationId);
 
-    if (jobs.length === 0) {
+    if (jobs.length === 0 && organizationId) {
       await prisma.jobRequisition.createMany({
         data: [
-          { title: "Senior React Developer", department: "Engineering", status: "Open", applicantsCount: 18 },
-          { title: "Lead UX UI Designer", department: "Design", status: "Open", applicantsCount: 9 },
-          { title: "HR Generalist Manager", department: "Human Resources", status: "Filled", applicantsCount: 24 },
+          { title: "Senior React Developer", department: "Engineering", status: "Open", applicantsCount: 18, organizationId },
+          { title: "Lead UX UI Designer", department: "Design", status: "Open", applicantsCount: 9, organizationId },
+          { title: "HR Generalist Manager", department: "Human Resources", status: "Filled", applicantsCount: 24, organizationId },
         ],
       });
-      jobs = await RecruitmentRepository.findRequisitions();
+      jobs = await RecruitmentRepository.findRequisitions(organizationId);
     }
 
     return jobs.map((job) => ({
@@ -27,23 +27,26 @@ export class RecruitmentService {
     }));
   }
 
-  static async createRequisition(data: { title: string; department: string }) {
-    return RecruitmentRepository.createRequisition(data);
+  static async createRequisition(data: { title: string; department: string }, organizationId?: string) {
+    return RecruitmentRepository.createRequisition({
+      ...data,
+      organizationId: organizationId || null,
+    });
   }
 
-  static async getCandidates() {
-    let candidates = await RecruitmentRepository.findCandidates();
+  static async getCandidates(organizationId?: string) {
+    let candidates = await RecruitmentRepository.findCandidates(organizationId);
 
-    if (candidates.length === 0) {
+    if (candidates.length === 0 && organizationId) {
       await prisma.candidate.createMany({
         data: [
-          { name: "Rishi Kumar", role: "Senior React Developer", experience: "5 Years", email: "rishi@gmail.com", stage: "Applied" },
-          { name: "Pooja Hegde", role: "Lead UX UI Designer", experience: "8 Years", email: "pooja@design.io", stage: "Interview" },
-          { name: "Amit Shah", role: "Senior React Developer", experience: "4 Years", email: "amit.shah@dev.net", stage: "Offer" },
-          { name: "Karan Johar", role: "HR Generalist Manager", experience: "6 Years", email: "karan@hrms.co", stage: "Onboarding" },
+          { name: "Rishi Kumar", role: "Senior React Developer", experience: "5 Years", email: "rishi@gmail.com", stage: "Applied", organizationId },
+          { name: "Pooja Hegde", role: "Lead UX UI Designer", experience: "8 Years", email: "pooja@design.io", stage: "Interview", organizationId },
+          { name: "Amit Shah", role: "Senior React Developer", experience: "4 Years", email: "amit.shah@dev.net", stage: "Offer", organizationId },
+          { name: "Karan Johar", role: "HR Generalist Manager", experience: "6 Years", email: "karan@hrms.co", stage: "Onboarding", organizationId },
         ],
       });
-      candidates = await RecruitmentRepository.findCandidates();
+      candidates = await RecruitmentRepository.findCandidates(organizationId);
     }
 
     return candidates.map((c) => ({

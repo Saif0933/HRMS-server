@@ -14,7 +14,7 @@ function calculateDays(start: Date, end: Date, halfDay: boolean) {
 
 export class LeaveService {
   // Helper to resolve employeeId from either Employee ID or User UUID
-  private static async resolveEmployeeId(id: string): Promise<string | null> {
+  private static async resolveEmployeeId(id: string, organizationId?: string): Promise<string | null> {
     let employee = await prisma.employee.findUnique({ where: { id } });
     if (employee) return employee.id;
     
@@ -43,6 +43,7 @@ export class LeaveService {
             status: "ACTIVE",
             joiningDate: new Date(),
             userId: user.id,
+            organizationId: organizationId || null,
           }
         });
         console.log(`[Leave Service] Dynamically provisioned Employee ${empId} (${empName}) for User ${user.id}`);
@@ -58,29 +59,34 @@ export class LeaveService {
   }
 
   // LeaveType Services
-  static async createLeaveType(data: any) {
-    const existingName = await LeaveRepository.findTypeByName(data.name);
+  static async createLeaveType(data: any, organizationId?: string) {
+    const orgId = organizationId || data.organizationId || null;
+
+    const existingName = await LeaveRepository.findTypeByName(data.name, orgId);
     if (existingName) {
-      throw new ErrorResponse("Leave type name already exists", statusCode.Conflict);
+      throw new ErrorResponse("Leave type name already exists in your organization", statusCode.Conflict);
     }
 
-    const existingCode = await LeaveRepository.findTypeByCode(data.code);
+    const existingCode = await LeaveRepository.findTypeByCode(data.code, orgId);
     if (existingCode) {
-      throw new ErrorResponse("Leave type code already exists", statusCode.Conflict);
+      throw new ErrorResponse("Leave type code already exists in your organization", statusCode.Conflict);
     }
 
-    return LeaveRepository.createType(data);
+    return LeaveRepository.createType({
+      ...data,
+      organizationId: orgId,
+    });
   }
 
-  static async getLeaveTypes(activeOnly = false) {
-    const types = await LeaveRepository.findAllTypes(activeOnly);
-    if (types.length === 0) {
+  static async getLeaveTypes(activeOnly = false, organizationId?: string) {
+    const types = await LeaveRepository.findAllTypes(activeOnly, organizationId);
+    if (types.length === 0 && organizationId) {
       const defaults = [
-        { name: "Sick Leave", code: "SL", defaultDays: 12, carryForward: false, maxCarryForward: 0, isActive: true },
-        { name: "Casual Leave", code: "CL", defaultDays: 12, carryForward: false, maxCarryForward: 0, isActive: true },
-        { name: "Earned Leave", code: "EL", defaultDays: 18, carryForward: true, maxCarryForward: 30, isActive: true },
-        { name: "Maternity Leave", code: "ML", defaultDays: 90, carryForward: false, maxCarryForward: 0, isActive: true },
-        { name: "Leave Without Pay", code: "LWP", defaultDays: 365, carryForward: false, maxCarryForward: 0, isActive: true },
+        { name: "Sick Leave", code: "SL", defaultDays: 12, carryForward: false, maxCarryForward: 0, isActive: true, organizationId },
+        { name: "Casual Leave", code: "CL", defaultDays: 12, carryForward: false, maxCarryForward: 0, isActive: true, organizationId },
+        { name: "Earned Leave", code: "EL", defaultDays: 18, carryForward: true, maxCarryForward: 30, isActive: true, organizationId },
+        { name: "Maternity Leave", code: "ML", defaultDays: 90, carryForward: false, maxCarryForward: 0, isActive: true, organizationId },
+        { name: "Leave Without Pay", code: "LWP", defaultDays: 365, carryForward: false, maxCarryForward: 0, isActive: true, organizationId },
       ];
       for (const item of defaults) {
         try {
@@ -89,11 +95,10 @@ export class LeaveService {
           // ignore unique constraint / race conditions
         }
       }
-      return LeaveRepository.findAllTypes(activeOnly);
+      return LeaveRepository.findAllTypes(activeOnly, organizationId);
     }
     return types;
   }
-
 
   static async getLeaveTypeById(id: string) {
     const type = await LeaveRepository.findTypeById(id);
@@ -103,23 +108,25 @@ export class LeaveService {
     return type;
   }
 
-  static async updateLeaveType(id: string, data: any) {
+  static async updateLeaveType(id: string, data: any, organizationId?: string) {
     const type = await LeaveRepository.findTypeById(id);
     if (!type) {
       throw new ErrorResponse("Leave type not found", statusCode.Not_Found);
     }
 
+    const orgId = organizationId || type.organizationId || undefined;
+
     if (data.name && data.name !== type.name) {
-      const existingName = await LeaveRepository.findTypeByName(data.name);
+      const existingName = await LeaveRepository.findTypeByName(data.name, orgId);
       if (existingName) {
-        throw new ErrorResponse("Leave type name already exists", statusCode.Conflict);
+        throw new ErrorResponse("Leave type name already exists in your organization", statusCode.Conflict);
       }
     }
 
     if (data.code && data.code !== type.code) {
-      const existingCode = await LeaveRepository.findTypeByCode(data.code);
+      const existingCode = await LeaveRepository.findTypeByCode(data.code, orgId);
       if (existingCode) {
-        throw new ErrorResponse("Leave type code already exists", statusCode.Conflict);
+        throw new ErrorResponse("Leave type code already exists in your organization", statusCode.Conflict);
       }
     }
 
@@ -145,9 +152,9 @@ export class LeaveService {
   }
 
   // LeaveAllocation Services
-  static async allocateLeave(data: any) {
+  static async allocateLeave(data: any, organizationId?: string) {
     // Verify employee exists
-    const resolvedId = await LeaveService.resolveEmployeeId(data.employeeId);
+    const resolvedId = await LeaveService.resolveEmployeeId(data.employeeId, organizationId);
     if (!resolvedId) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
@@ -159,6 +166,8 @@ export class LeaveService {
       throw new ErrorResponse("Leave type not found", statusCode.Not_Found);
     }
 
+    const allocOrgId = organizationId || type.organizationId || null;
+
     const existing = await LeaveRepository.findAllocation(data.employeeId, data.leaveTypeId, data.year);
     if (existing) {
       return LeaveRepository.updateAllocation(existing.id, {
@@ -167,16 +176,19 @@ export class LeaveService {
       });
     }
 
-    return LeaveRepository.createAllocation(data);
+    return LeaveRepository.createAllocation({
+      ...data,
+      organizationId: allocOrgId,
+    });
   }
 
-  static async getLeaveAllocations(filters: { employeeId?: string; year?: number }) {
+  static async getLeaveAllocations(filters: { employeeId?: string; year?: number; organizationId?: string }) {
     const year = filters.year || new Date().getFullYear();
     if (filters.employeeId) {
-      const resolvedId = await LeaveService.resolveEmployeeId(filters.employeeId);
+      const resolvedId = await LeaveService.resolveEmployeeId(filters.employeeId, filters.organizationId);
       if (resolvedId) {
-        const existing = await LeaveRepository.findAllAllocations({ employeeId: resolvedId, year });
-        const activeTypes = await LeaveRepository.findAllTypes(true);
+        const existing = await LeaveRepository.findAllAllocations({ employeeId: resolvedId, year, organizationId: filters.organizationId });
+        const activeTypes = await LeaveRepository.findAllTypes(true, filters.organizationId);
         const missingTypes = activeTypes.filter(t => !existing.some(a => a.leaveTypeId === t.id));
         if (missingTypes.length > 0) {
           for (const type of missingTypes) {
@@ -187,12 +199,13 @@ export class LeaveService {
                 year,
                 allocated: type.defaultDays,
                 carriedForward: 0,
+                organizationId: filters.organizationId || type.organizationId || null,
               });
             } catch (err) {
               // Ignore unique constraint or concurrency issues
             }
           }
-          return LeaveRepository.findAllAllocations({ employeeId: resolvedId, year });
+          return LeaveRepository.findAllAllocations({ employeeId: resolvedId, year, organizationId: filters.organizationId });
         }
         return existing;
       }
@@ -201,13 +214,15 @@ export class LeaveService {
   }
 
   // LeaveRequest Services
-  static async requestLeave(data: any) {
+  static async requestLeave(data: any, organizationId?: string) {
     // 1. Verify employee exists
-    const resolvedId = await LeaveService.resolveEmployeeId(data.employeeId);
+    const resolvedId = await LeaveService.resolveEmployeeId(data.employeeId, organizationId);
     if (!resolvedId) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
     data.employeeId = resolvedId;
+
+    const reqOrgId = organizationId || null;
 
     // 2. Verify leave type exists and is active
     if (!data.leaveTypeId || String(data.leaveTypeId).trim() === "") {
@@ -216,11 +231,10 @@ export class LeaveService {
 
     let leaveType = await LeaveRepository.findTypeById(data.leaveTypeId);
     if (!leaveType) {
-      // Fallback: try looking up by code (e.g. "SL") or name
-      leaveType = await LeaveRepository.findTypeByCode(data.leaveTypeId.toUpperCase());
+      leaveType = await LeaveRepository.findTypeByCode(data.leaveTypeId.toUpperCase(), reqOrgId || undefined);
     }
     if (!leaveType) {
-      leaveType = await LeaveRepository.findTypeByName(data.leaveTypeId);
+      leaveType = await LeaveRepository.findTypeByName(data.leaveTypeId, reqOrgId || undefined);
     }
 
     if (!leaveType || !leaveType.isActive) {
@@ -228,9 +242,7 @@ export class LeaveService {
       throw new ErrorResponse("Active leave type not found", statusCode.Not_Found);
     }
 
-    // Standardize to database ID
     data.leaveTypeId = leaveType.id;
-
 
     // 3. Validate dates
     if (data.startDate > data.endDate) {
@@ -247,13 +259,13 @@ export class LeaveService {
     // 4. Resolve or initialize allocation balance
     let allocation = await LeaveRepository.findAllocation(data.employeeId, data.leaveTypeId, year);
     if (!allocation) {
-      // Auto-provision allocation balance with leave type defaults
       allocation = await LeaveRepository.createAllocation({
         employeeId: data.employeeId,
         leaveTypeId: data.leaveTypeId,
         year,
         allocated: leaveType.defaultDays,
         carriedForward: 0,
+        organizationId: reqOrgId || leaveType.organizationId || null,
       });
     }
 
@@ -272,7 +284,6 @@ export class LeaveService {
     });
 
     if (overlapping) {
-      // Automatically supersede previous request for the overlapping dates
       await prisma.leaveRequest.update({
         where: { id: overlapping.id },
         data: {
@@ -281,8 +292,6 @@ export class LeaveService {
         },
       });
 
-      // Adjust allocation counters accordingly
-      const year = data.startDate.getFullYear();
       const alloc = await LeaveRepository.findAllocation(data.employeeId, data.leaveTypeId, year);
       if (alloc) {
         if (overlapping.status === "PENDING" && alloc.pending >= overlapping.totalDays) {
@@ -303,7 +312,7 @@ export class LeaveService {
       }
     }
 
-    // 6. Check leave balance (unpaid / LWP doesn't enforce balance checks)
+    // 6. Check leave balance
     const isUnpaid = leaveType.code.toLowerCase() === "lwp";
     if (!isUnpaid) {
       const remainingBalance = allocation.allocated + allocation.carriedForward - (allocation.used + allocation.pending);
@@ -328,6 +337,7 @@ export class LeaveService {
           totalDays,
           reason: data.reason,
           attachmentUrl: data.attachmentUrl,
+          organizationId: reqOrgId || leaveType?.organizationId || null,
           status: "PENDING",
         },
         include: {
@@ -346,9 +356,9 @@ export class LeaveService {
     });
   }
 
-  static async getLeaveRequests(filters: { employeeId?: string; leaveTypeId?: string; status?: any }) {
+  static async getLeaveRequests(filters: { employeeId?: string; leaveTypeId?: string; status?: any; organizationId?: string }) {
     if (filters.employeeId) {
-      const resolvedId = await LeaveService.resolveEmployeeId(filters.employeeId);
+      const resolvedId = await LeaveService.resolveEmployeeId(filters.employeeId, filters.organizationId);
       if (resolvedId) {
         filters.employeeId = resolvedId;
       }
@@ -364,10 +374,14 @@ export class LeaveService {
     return request;
   }
 
-  static async processLeaveRequest(id: string, approverId: string, status: "APPROVED" | "REJECTED", rejectionReason?: string) {
+  static async processLeaveRequest(id: string, approverId: string, status: "APPROVED" | "REJECTED", rejectionReason?: string, organizationId?: string) {
     const request = await LeaveRepository.findRequestById(id);
     if (!request) {
       throw new ErrorResponse("Leave request not found", statusCode.Not_Found);
+    }
+
+    if (organizationId && request.organizationId && request.organizationId !== organizationId) {
+      throw new ErrorResponse("You do not have permission to process leave requests for another organization", statusCode.Forbidden);
     }
 
     if (request.status !== "PENDING") {
@@ -416,17 +430,20 @@ export class LeaveService {
     });
   }
 
-  static async cancelLeaveRequest(id: string, userId: string) {
+  static async cancelLeaveRequest(id: string, userId: string, organizationId?: string) {
     const request = await LeaveRepository.findRequestById(id);
     if (!request) {
       throw new ErrorResponse("Leave request not found", statusCode.Not_Found);
+    }
+
+    if (organizationId && request.organizationId && request.organizationId !== organizationId) {
+      throw new ErrorResponse("You do not have permission to cancel leave requests for another organization", statusCode.Forbidden);
     }
 
     if (request.status === "CANCELLED" || request.status === "REJECTED") {
       throw new ErrorResponse(`Request is already ${request.status.toLowerCase()}`, statusCode.Bad_Request);
     }
 
-    // If request was approved and start date has already passed, restrict cancellation
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const start = new Date(request.startDate);

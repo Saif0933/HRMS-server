@@ -1,68 +1,81 @@
 model PayrollCycle {
-  id          String             @id @default(cuid())
-  month       String
-  year        Int
-  status      String             @default("PENDING_ATTENDANCE_LOCK") // PENDING_ATTENDANCE_LOCK, PROCESSING_SALARIES, DISBURSED
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  runs        PayrollRun[]
-  exclusions  PayrollExclusion[]
+  id             String             @id @default(cuid())
+  month          String
+  year           Int
+  status         String             @default("PENDING_ATTENDANCE_LOCK") // PENDING_ATTENDANCE_LOCK, PROCESSING_SALARIES, DISBURSED
+  organizationId String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  runs           PayrollRun[]
+  exclusions     PayrollExclusion[]
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([month, year])
+  @@unique([month, year, organizationId])
+  @@index([organizationId])
   @@map("payroll_cycles")
 }
 
 model PayrollRun {
-  id          String       @id @default(cuid())
-  employeeId  String
-  cycleId     String
-  basic       Float
-  hra         Float
-  allowance   Float
-  pf          Float
-  pt          Float        @default(200)
-  tds         Float        @default(0)
-  bonus       Float        @default(0)
-  arrear      Float        @default(0)
-  deductions  Float
-  netSalary   Float
-  status      String       @default("PENDING") // PENDING, PAID, HELD
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  employee    Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  cycle       PayrollCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  id             String        @id @default(cuid())
+  employeeId     String
+  cycleId        String
+  basic          Float
+  hra            Float
+  allowance      Float
+  pf             Float
+  pt             Float         @default(200)
+  tds            Float         @default(0)
+  bonus          Float         @default(0)
+  arrear         Float         @default(0)
+  deductions     Float
+  netSalary      Float
+  status         String        @default("PENDING") // PENDING, PAID, HELD
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle          PayrollCycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, cycleId])
+  @@index([organizationId])
+  @@index([employeeId])
   @@map("payroll_runs")
 }
 
 model PayrollExclusion {
-  id         String       @id @default(cuid())
-  employeeId String
-  cycleId    String
-  reason     String?
-  createdAt  DateTime     @default(now())
-  employee   Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  cycle      PayrollCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  id             String        @id @default(cuid())
+  employeeId     String
+  cycleId        String
+  reason         String?
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle          PayrollCycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, cycleId])
+  @@index([organizationId])
   @@map("payroll_exclusions")
 }
 
 model Loan {
-  id           String            @id @default(cuid())
-  employeeId   String
-  principal    Float
-  balance      Float
-  emi          Float
-  purpose      String?
-  status       String            @default("ACTIVE") // ACTIVE, PAID, REJECTED
-  approvedDate DateTime          @default(now())
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  transactions LoanTransaction[]
+  id             String            @id @default(cuid())
+  employeeId     String
+  principal      Float
+  balance        Float
+  emi            Float
+  purpose        String?
+  status         String            @default("ACTIVE") // ACTIVE, PAID, REJECTED
+  approvedDate   DateTime          @default(now())
+  organizationId String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  employee       Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  organization   Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions   LoanTransaction[]
 
+  @@index([organizationId])
   @@map("loans")
 }
 
@@ -78,16 +91,19 @@ model LoanTransaction {
 }
 
 model TaxDeclaration {
-  id            String   @id @default(cuid())
-  employeeId    String
-  financialYear String
-  sec80C        Float    @default(0)
-  sec80D        Float    @default(0)
-  declaredHra   Float    @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String        @id @default(cuid())
+  employeeId     String
+  financialYear  String
+  sec80C         Float         @default(0)
+  sec80D         Float         @default(0)
+  declaredHra    Float         @default(0)
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, financialYear])
+  @@index([organizationId])
   @@map("tax_declarations")
 }

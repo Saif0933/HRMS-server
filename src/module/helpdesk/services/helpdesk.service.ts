@@ -4,16 +4,19 @@ import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
 
 export class HelpDeskService {
-  static async getTickets() {
-    let tickets = await HelpDeskRepository.findTickets();
+  static async getTickets(organizationId?: string) {
+    let tickets = await HelpDeskRepository.findTickets(organizationId);
 
-    if (tickets.length === 0) {
-      const employee = await prisma.employee.findFirst();
+    if (tickets.length === 0 && organizationId) {
+      const employee = await prisma.employee.findFirst({
+        where: { organizationId }
+      });
       const empId = employee?.id || null;
 
       if (empId) {
         await HelpDeskRepository.createTicket({
           employeeId: empId,
+          organizationId,
           subject: "Intranet VPN credentials not authenticating",
           description: "Trying to connect from home broadband, login fails continuously.",
           category: "IT",
@@ -24,6 +27,7 @@ export class HelpDeskService {
 
         await HelpDeskRepository.createTicket({
           employeeId: empId,
+          organizationId,
           subject: "June tax deduction slips missing basic values",
           description: "HR Portal doesn't show standard section 80C deductions in June salary slips.",
           category: "Finance",
@@ -34,6 +38,7 @@ export class HelpDeskService {
 
         const resolvedTicket = await HelpDeskRepository.createTicket({
           employeeId: empId,
+          organizationId,
           subject: "New keycard access required for BKC wing",
           description: "Need authorization access to level 3 design wing.",
           category: "Facilities",
@@ -43,7 +48,7 @@ export class HelpDeskService {
         });
         await HelpDeskRepository.updateTicketStatus(resolvedTicket.id, "Resolved", 0);
 
-        tickets = await HelpDeskRepository.findTickets();
+        tickets = await HelpDeskRepository.findTickets(organizationId);
       }
     }
 
@@ -51,6 +56,7 @@ export class HelpDeskService {
       id: t.id,
       employeeName: t.employee.name,
       employeeId: t.employeeId,
+      organizationId: t.organizationId,
       subject: t.subject,
       description: t.description,
       category: t.category,
@@ -61,13 +67,16 @@ export class HelpDeskService {
     }));
   }
 
-  static async createTicket(data: {
-    employeeId: string;
-    subject: string;
-    description: string;
-    category: string;
-    priority: string;
-  }) {
+  static async createTicket(
+    data: {
+      employeeId: string;
+      subject: string;
+      description: string;
+      category: string;
+      priority: string;
+    },
+    organizationId?: string
+  ) {
     const employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
     });
@@ -75,21 +84,28 @@ export class HelpDeskService {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
 
+    const ticketOrgId = organizationId || employee.organizationId || null;
     const slaHoursLeft = data.priority === "High" ? 4 : data.priority === "Medium" ? 12 : 24;
     const date = new Date().toISOString().substring(0, 10);
 
     return HelpDeskRepository.createTicket({
       ...data,
+      organizationId: ticketOrgId,
       slaHoursLeft,
       date,
     });
   }
 
-  static async resolveTicket(id: string) {
+  static async resolveTicket(id: string, organizationId?: string) {
     const ticket = await HelpDeskRepository.findTicketById(id);
     if (!ticket) {
       throw new ErrorResponse("Support ticket not found", statusCode.Not_Found);
     }
+
+    if (organizationId && ticket.organizationId && ticket.organizationId !== organizationId) {
+      throw new ErrorResponse("You do not have permission to resolve tickets for another organization", statusCode.Forbidden);
+    }
+
     return HelpDeskRepository.updateTicketStatus(id, "Resolved", 0);
   }
 }

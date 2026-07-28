@@ -2,17 +2,22 @@ import { prisma } from "../../../db/prisma.ts";
 
 export class PayrollRepository {
   // Payroll Cycle
-  static async findCycle(month: string, year: number) {
-    return prisma.payrollCycle.findUnique({
-      where: {
-        month_year: { month, year },
-      },
+  static async findCycle(month: string, year: number, organizationId?: string) {
+    if (organizationId) {
+      return prisma.payrollCycle.findUnique({
+        where: {
+          month_year_organizationId: { month, year, organizationId },
+        },
+      });
+    }
+    return prisma.payrollCycle.findFirst({
+      where: { month, year },
     });
   }
 
-  static async createCycle(month: string, year: number) {
+  static async createCycle(month: string, year: number, organizationId?: string) {
     return prisma.payrollCycle.create({
-      data: { month, year, status: "PENDING_ATTENDANCE_LOCK" },
+      data: { month, year, organizationId: organizationId || null, status: "PENDING_ATTENDANCE_LOCK" },
     });
   }
 
@@ -109,9 +114,9 @@ export class PayrollRepository {
     });
   }
 
-  static async createExclusion(employeeId: string, cycleId: string, reason?: string) {
+  static async createExclusion(employeeId: string, cycleId: string, reason?: string, organizationId?: string) {
     return prisma.payrollExclusion.create({
-      data: { employeeId, cycleId, reason },
+      data: { employeeId, cycleId, reason, organizationId: organizationId || null },
     });
   }
 
@@ -124,9 +129,13 @@ export class PayrollRepository {
   }
 
   // Loans
-  static async findLoans(employeeId?: string) {
+  static async findLoans(employeeId?: string, organizationId?: string) {
+    const where: any = {};
+    if (employeeId) where.employeeId = employeeId;
+    if (organizationId) where.organizationId = organizationId;
+
     return prisma.loan.findMany({
-      where: employeeId ? { employeeId } : undefined,
+      where,
       include: {
         employee: true,
         transactions: {

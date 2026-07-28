@@ -2,8 +2,14 @@ import { prisma } from "../../../db/prisma.ts";
 
 export class EngagementRepository {
   // Feed Announcements
-  static async findPosts(employeeId?: string) {
+  static async findPosts(employeeId?: string, organizationId?: string) {
+    const where: any = {};
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+
     const posts = await prisma.engagementPost.findMany({
+      where,
       include: {
         comments: {
           orderBy: { createdAt: "asc" },
@@ -40,6 +46,7 @@ export class EngagementRepository {
         likes: post.likesCount,
         likedByMe,
         reactions,
+        organizationId: post.organizationId,
         comments: post.comments.map((c) => ({
           id: c.id,
           user: c.userName,
@@ -126,8 +133,14 @@ export class EngagementRepository {
     });
   }
 
-  static async getMoodDistribution() {
+  static async getMoodDistribution(organizationId?: string) {
+    const where: any = {};
+    if (organizationId) {
+      where.employee = { organizationId };
+    }
+
     const moods = await prisma.engagementMood.findMany({
+      where,
       select: { mood: true },
     });
 
@@ -160,8 +173,14 @@ export class EngagementRepository {
   }
 
   // Surveys
-  static async findSurveys(employeeId?: string) {
+  static async findSurveys(employeeId?: string, organizationId?: string) {
+    const where: any = {};
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+
     const surveys = await prisma.corporateSurvey.findMany({
+      where,
       include: {
         responses: true,
       },
@@ -179,6 +198,7 @@ export class EngagementRepository {
         question: s.question,
         status: s.status,
         closesAt: s.closesAt,
+        organizationId: s.organizationId,
         responded,
       };
     });
@@ -198,7 +218,7 @@ export class EngagementRepository {
     });
   }
 
-  static async createSurvey(data: { title: string; question: string; closesAt: Date }) {
+  static async createSurvey(data: { title: string; question: string; closesAt: Date; organizationId?: string | null }) {
     return prisma.corporateSurvey.create({
       data,
     });

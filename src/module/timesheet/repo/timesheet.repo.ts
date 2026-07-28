@@ -1,13 +1,16 @@
 import { prisma } from "../../../db/prisma.ts";
 
 export class TimesheetRepository {
-  static async findTimesheets(filters: { employeeId?: string; status?: string }) {
+  static async findTimesheets(filters: { employeeId?: string; status?: string; organizationId?: string }) {
     const whereClause: any = {};
     if (filters.employeeId) {
       whereClause.employeeId = filters.employeeId;
     }
     if (filters.status) {
       whereClause.status = filters.status;
+    }
+    if (filters.organizationId) {
+      whereClause.organizationId = filters.organizationId;
     }
 
     return prisma.timesheet.findMany({
@@ -36,6 +39,7 @@ export class TimesheetRepository {
     friHours: number;
     totalHours: number;
     week: string;
+    organizationId?: string | null;
   }) {
     return prisma.timesheet.create({
       data,

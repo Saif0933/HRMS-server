@@ -1,35 +1,44 @@
 model LeaveType {
   id              String            @id @default(cuid())
-  name            String            @unique
-  code            String            @unique
+  name            String
+  code            String
   description     String?
   defaultDays     Float
   carryForward    Boolean           @default(false)
   maxCarryForward Float?            @default(0)
   isActive        Boolean           @default(true)
+  organizationId  String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   allocations     LeaveAllocation[]
   requests        LeaveRequest[]
+  organization    Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([name, organizationId])
+  @@unique([code, organizationId])
+  @@index([organizationId])
   @@map("leave_types")
 }
 
 model LeaveAllocation {
-  id             String    @id @default(cuid())
+  id             String        @id @default(cuid())
   employeeId     String
   leaveTypeId    String
   year           Int
   allocated      Float
-  used           Float     @default(0)
-  pending        Float     @default(0)
-  carriedForward Float     @default(0)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  leaveType      LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  used           Float         @default(0)
+  pending        Float         @default(0)
+  carriedForward Float         @default(0)
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType      LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, leaveTypeId, year])
+  @@index([organizationId])
+  @@index([employeeId])
   @@map("leave_allocations")
 }
 
@@ -49,12 +58,16 @@ model LeaveRequest {
   approvedById    String?
   approvedAt      DateTime?
   rejectionReason String?
+  organizationId  String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   approvedBy      User?           @relation("LeaveApprover", fields: [approvedById], references: [id])
   employee        Employee        @relation("EmployeeLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
   leaveType       LeaveType       @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  organization    Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
+  @@index([employeeId])
   @@map("leave_requests")
 }
 

@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
 import { LeaveService } from "../services/leave.service.ts";
 import { SuccessResponse } from "../../../utils/response.util.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
@@ -12,13 +13,13 @@ import {
 } from "../validators/leave.validator.ts";
 
 // LeaveType Controller Methods
-export const createLeaveType = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const createLeaveType = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = createLeaveTypeSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const leaveType = await LeaveService.createLeaveType(parsed.data);
+  const leaveType = await LeaveService.createLeaveType(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -28,9 +29,9 @@ export const createLeaveType = asyncHandler(async (req: Request, res: Response, 
   );
 });
 
-export const getLeaveTypes = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getLeaveTypes = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const activeOnly = req.query.activeOnly === "true";
-  const leaveTypes = await LeaveService.getLeaveTypes(activeOnly);
+  const leaveTypes = await LeaveService.getLeaveTypes(activeOnly, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -40,7 +41,7 @@ export const getLeaveTypes = asyncHandler(async (req: Request, res: Response, ne
   );
 });
 
-export const getLeaveTypeById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getLeaveTypeById = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const leaveType = await LeaveService.getLeaveTypeById(id);
 
@@ -52,14 +53,14 @@ export const getLeaveTypeById = asyncHandler(async (req: Request, res: Response,
   );
 });
 
-export const updateLeaveType = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const updateLeaveType = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const parsed = updateLeaveTypeSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const updatedType = await LeaveService.updateLeaveType(id, parsed.data);
+  const updatedType = await LeaveService.updateLeaveType(id, parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -69,7 +70,7 @@ export const updateLeaveType = asyncHandler(async (req: Request, res: Response, 
   );
 });
 
-export const deleteLeaveType = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const deleteLeaveType = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const deletedOrDeactivated = await LeaveService.deleteLeaveType(id);
 
@@ -82,13 +83,13 @@ export const deleteLeaveType = asyncHandler(async (req: Request, res: Response, 
 });
 
 // LeaveAllocation Controller Methods
-export const allocateLeave = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const allocateLeave = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = allocateLeaveSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const allocation = await LeaveService.allocateLeave(parsed.data);
+  const allocation = await LeaveService.allocateLeave(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -98,11 +99,15 @@ export const allocateLeave = asyncHandler(async (req: Request, res: Response, ne
   );
 });
 
-export const getLeaveAllocations = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getLeaveAllocations = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
   const year = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
 
-  const allocations = await LeaveService.getLeaveAllocations({ employeeId, year });
+  const allocations = await LeaveService.getLeaveAllocations({
+    employeeId,
+    year,
+    organizationId: req.user?.organizationId,
+  });
 
   return SuccessResponse(
     res,
@@ -113,13 +118,13 @@ export const getLeaveAllocations = asyncHandler(async (req: Request, res: Respon
 });
 
 // LeaveRequest Controller Methods
-export const requestLeave = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const requestLeave = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const parsed = requestLeaveSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  const request = await LeaveService.requestLeave(parsed.data);
+  const request = await LeaveService.requestLeave(parsed.data, req.user?.organizationId);
 
   return SuccessResponse(
     res,
@@ -129,12 +134,17 @@ export const requestLeave = asyncHandler(async (req: Request, res: Response, nex
   );
 });
 
-export const getLeaveRequests = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getLeaveRequests = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;
   const leaveTypeId = req.query.leaveTypeId as string | undefined;
   const status = req.query.status as any | undefined;
 
-  const requests = await LeaveService.getLeaveRequests({ employeeId, leaveTypeId, status });
+  const requests = await LeaveService.getLeaveRequests({
+    employeeId,
+    leaveTypeId,
+    status,
+    organizationId: req.user?.organizationId,
+  });
 
   return SuccessResponse(
     res,
@@ -144,7 +154,7 @@ export const getLeaveRequests = asyncHandler(async (req: Request, res: Response,
   );
 });
 
-export const getLeaveRequestById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const getLeaveRequestById = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const request = await LeaveService.getLeaveRequestById(id);
 
@@ -156,21 +166,21 @@ export const getLeaveRequestById = asyncHandler(async (req: Request, res: Respon
   );
 });
 
-export const processLeaveRequest = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const processLeaveRequest = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const parsed = processLeaveRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     return next(parsed.error);
   }
 
-  // Get the logged-in user id (approver) from req.user
-  const approverId = (req as any).user?.id;
+  const approverId = req.user?.id || "";
 
   const updatedRequest = await LeaveService.processLeaveRequest(
     id,
     approverId,
     parsed.data.status,
-    parsed.data.rejectionReason
+    parsed.data.rejectionReason,
+    req.user?.organizationId
   );
 
   return SuccessResponse(
@@ -181,11 +191,11 @@ export const processLeaveRequest = asyncHandler(async (req: Request, res: Respon
   );
 });
 
-export const cancelLeaveRequest = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+export const cancelLeaveRequest = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
-  const userId = (req as any).user?.id;
+  const userId = req.user?.id || "";
 
-  const cancelledRequest = await LeaveService.cancelLeaveRequest(id, userId);
+  const cancelledRequest = await LeaveService.cancelLeaveRequest(id, userId, req.user?.organizationId);
 
   return SuccessResponse(
     res,

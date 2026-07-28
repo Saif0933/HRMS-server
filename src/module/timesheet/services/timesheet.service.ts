@@ -4,12 +4,15 @@ import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
 
 export class TimesheetService {
-  static async getTimesheets(filters: { employeeId?: string; status?: string }) {
+  static async getTimesheets(filters: { employeeId?: string; status?: string; organizationId?: string }) {
     let timesheets = await TimesheetRepository.findTimesheets(filters);
 
     // Auto-seed default timesheets if empty
-    if (timesheets.length === 0) {
-      const employee = await prisma.employee.findFirst();
+    if (timesheets.length === 0 && filters.organizationId) {
+      const employee = await prisma.employee.findFirst({
+        where: { organizationId: filters.organizationId },
+      }) || await prisma.employee.findFirst();
+
       if (employee) {
         await TimesheetRepository.createTimesheet({
           employeeId: employee.id,
@@ -22,6 +25,7 @@ export class TimesheetService {
           friHours: 8,
           totalHours: 40,
           week: "Week 26 (Jun 22 - Jun 28)",
+          organizationId: filters.organizationId || employee.organizationId || null,
         });
 
         timesheets = await TimesheetRepository.findTimesheets(filters);
@@ -45,17 +49,20 @@ export class TimesheetService {
     }));
   }
 
-  static async submitTimesheet(data: {
-    employeeId: string;
-    project: string;
-    task: string;
-    monHours: number;
-    tueHours: number;
-    wedHours: number;
-    thuHours: number;
-    friHours: number;
-    week: string;
-  }) {
+  static async submitTimesheet(
+    data: {
+      employeeId: string;
+      project: string;
+      task: string;
+      monHours: number;
+      tueHours: number;
+      wedHours: number;
+      thuHours: number;
+      friHours: number;
+      week: string;
+    },
+    organizationId?: string
+  ) {
     const employee = await prisma.employee.findUnique({ where: { id: data.employeeId } });
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
@@ -63,9 +70,12 @@ export class TimesheetService {
     const totalHours =
       data.monHours + data.tueHours + data.wedHours + data.thuHours + data.friHours;
 
+    const tsOrgId = organizationId || employee.organizationId || null;
+
     return TimesheetRepository.createTimesheet({
       ...data,
       totalHours,
+      organizationId: tsOrgId,
     });
   }
 
