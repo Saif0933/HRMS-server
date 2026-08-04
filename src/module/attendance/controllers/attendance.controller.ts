@@ -1,13 +1,13 @@
-import type { Request, Response, NextFunction } from "express";
-import { AttendanceService } from "../services/attendance.service.ts";
-import { SuccessResponse } from "../../../utils/response.util.ts";
+import type { NextFunction, Request, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
 import { statusCode } from "../../../types/types.ts";
+import { SuccessResponse } from "../../../utils/response.util.ts";
+import { AttendanceService } from "../services/attendance.service.ts";
 import {
-  createPunchSchema,
   applyRegularizationSchema,
   approveRejectRegularizationSchema,
   createGeofenceSchema,
+  createPunchSchema,
   saveRosterSchema,
 } from "../validators/attendance.validator.ts";
 
@@ -136,6 +136,42 @@ export const saveRosters = asyncHandler(async (req: Request, res: Response, next
     res,
     "Weekly shift roster saved successfully",
     rosters,
+    statusCode.OK
+  );
+});
+
+let inMemoryShiftTimings: any[] = [];
+
+export const getShiftTimings = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  return SuccessResponse(
+    res,
+    "Shift timings retrieved successfully",
+    inMemoryShiftTimings,
+    statusCode.OK
+  );
+});
+
+export const createShiftTiming = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const newTiming = {
+    id: `ST_${Date.now()}`,
+    ...req.body,
+  };
+  inMemoryShiftTimings.push(newTiming);
+  return SuccessResponse(
+    res,
+    "Shift timing created successfully",
+    newTiming,
+    statusCode.Created
+  );
+});
+
+export const deleteShiftTiming = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const id = req.params.id as string;
+  inMemoryShiftTimings = inMemoryShiftTimings.filter(t => t.id !== id);
+  return SuccessResponse(
+    res,
+    "Shift timing deleted successfully",
+    null,
     statusCode.OK
   );
 });

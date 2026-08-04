@@ -29,6 +29,7 @@ model Organization {
   roles              Role[]
   departments        Department[]
   employees          Employee[]
+  shifts             Shift[]
   platformCompany    PlatformCompany?
   assets             Asset[]
   auditLogs          AuditLog[]

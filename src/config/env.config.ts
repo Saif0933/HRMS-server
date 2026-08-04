@@ -8,8 +8,8 @@ export const env = {
     secret: process.env.JWT_SECRET,
   },
   server: {
-    port: process.env.PORT,
-    nodeEnv: process.env.NODE_ENV,
+    port: Number(process.env.PORT) || 5000,
+    nodeEnv: process.env.NODE_ENV || "development",
   },
   cloudinary: {
     name: process.env.CLOUD_NAME,

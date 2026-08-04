@@ -1,6 +1,6 @@
-import { prisma } from "./prisma.ts";
-import { seedPermissions } from "../seed/permission.seed.ts";
 import { SubscriptionRepository } from "../module/subscription/repo/subscription.repo.ts";
+import { seedPermissions } from "../seed/permission.seed.ts";
+import { prisma } from "./prisma.ts";
 
 /**
  * Automatically creates the users table and indexes if they do not exist
@@ -1725,12 +1725,9 @@ export async function syncDatabase() {
       END $$;
     `);
 
-    // 7. Seed system-default roles if they don't exist
+    // 7. Seed system-default roles if they don't exist (Only SUPER_ADMIN role is created by default)
     const rolesToSeed = [
       { id: "role_super_admin", name: "SUPER_ADMIN", description: "System Administrator with full access" },
-      { id: "role_hr_admin", name: "HR_ADMIN", description: "HR Administrator with management access" },
-      { id: "role_manager", name: "MANAGER", description: "Department Manager" },
-      { id: "role_employee", name: "EMPLOYEE", description: "Regular Employee" },
     ];
 
     for (const r of rolesToSeed) {

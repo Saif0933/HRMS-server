@@ -1,7 +1,7 @@
-import { AttendanceRepository } from "../repo/attendance.repo.ts";
-import { ErrorResponse } from "../../../utils/response.util.ts";
-import { statusCode } from "../../../types/types.ts";
 import { prisma } from "../../../db/prisma.ts";
+import { statusCode } from "../../../types/types.ts";
+import { ErrorResponse } from "../../../utils/response.util.ts";
+import { AttendanceRepository } from "../repo/attendance.repo.ts";
 
 const formatPunchTime = (createdAt: Date, timeStr: string) => {
   if (!createdAt) return timeStr;
@@ -38,7 +38,21 @@ const formatPunchTime = (createdAt: Date, timeStr: string) => {
 
 export class AttendanceService {
   static async getPunches(employeeId: string) {
-    let punches = await AttendanceRepository.findPunchesByEmployee(employeeId);
+    let resolvedId = employeeId;
+    const emp = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { id: employeeId },
+          { userId: employeeId },
+          { email: { equals: employeeId, mode: "insensitive" } },
+        ],
+      },
+    });
+    if (emp) {
+      resolvedId = emp.id;
+    }
+
+    let punches = await AttendanceRepository.findPunchesByEmployee(resolvedId);
 
     if (punches.length === 0) {
       const yesterday = new Date();
@@ -46,33 +60,34 @@ export class AttendanceService {
 
       await prisma.attendancePunch.create({
         data: {
-          employeeId,
+          employeeId: resolvedId,
           time: "Yesterday, 09:34 AM",
           type: "In",
           method: "Biometric Portal",
           lat: 23.357445,
           lng: 85.311484,
-          createdAt: yesterday
-        }
+          createdAt: yesterday,
+        },
       });
 
       await prisma.attendancePunch.create({
         data: {
-          employeeId,
+          employeeId: resolvedId,
           time: "Yesterday, 06:31 PM",
           type: "Out",
           method: "Biometric Portal",
           lat: 23.357445,
           lng: 85.311484,
-          createdAt: yesterday
-        }
+          createdAt: yesterday,
+        },
       });
 
-      punches = await AttendanceRepository.findPunchesByEmployee(employeeId);
+      punches = await AttendanceRepository.findPunchesByEmployee(resolvedId);
     }
 
     return punches.map((p) => ({
       id: p.id,
+      employeeId: p.employeeId,
       time: formatPunchTime(p.createdAt, p.time),
       type: p.type,
       method: p.method,
@@ -91,9 +106,22 @@ export class AttendanceService {
     lng: number;
     selfiePreview?: string | null;
   }) {
-    const employee = await prisma.employee.findUnique({
+    let employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
     });
+    if (!employee) {
+      employee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { userId: data.employeeId },
+            { email: { equals: data.employeeId, mode: "insensitive" } },
+          ],
+        },
+      });
+      if (employee) {
+        data.employeeId = employee.id;
+      }
+    }
     if (!employee) {
       throw new ErrorResponse("Employee not found", statusCode.Not_Found);
     }
@@ -237,7 +265,12 @@ export class AttendanceService {
   }
 
   static async deleteGeofence(id: string) {
-    return AttendanceRepository.deleteGeofence(id);
+    const existing = await AttendanceRepository.findGeofenceById(id);
+    if (!existing) {
+      return { id };
+    }
+    await AttendanceRepository.deleteGeofence(id);
+    return { id };
   }
 
   static async getRosters(week: string) {

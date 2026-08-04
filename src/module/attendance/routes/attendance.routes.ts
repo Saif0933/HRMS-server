@@ -11,6 +11,9 @@ import {
   deleteGeofence,
   getRosters,
   saveRosters,
+  getShiftTimings,
+  createShiftTiming,
+  deleteShiftTiming,
 } from "../controllers/attendance.controller.ts";
 
 const router = Router();
@@ -28,5 +31,8 @@ router.post("/geofences", hasPermission("UPDATE_ATTENDANCE"), createGeofence);
 router.delete("/geofences/:id", hasPermission("DELETE_ATTENDANCE"), deleteGeofence);
 router.get("/rosters", hasPermission("VIEW_SHIFT_ROSTER", "VIEW_ATTENDANCE"), getRosters);
 router.post("/rosters", hasPermission("UPDATE_SHIFT_ROSTER", "UPDATE_ATTENDANCE"), saveRosters);
+router.get("/shift-timings", getShiftTimings);
+router.post("/shift-timings", createShiftTiming);
+router.delete("/shift-timings/:id", deleteShiftTiming);
 
 export default router;

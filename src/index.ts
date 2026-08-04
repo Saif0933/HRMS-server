@@ -1,26 +1,26 @@
 import express from "express";
 import env from "./config/env.config";
+import { syncDatabase } from "./db/sync.ts";
 import errorMiddleware from "./middlewares/error.middleware";
-import authRoutes from "./module/user/routes/auth.routes.ts";
 import adminRoutes from "./module/admin/routes/role.routes.ts";
+import assetRoutes from "./module/asset/routes/asset.routes.ts";
+import attendanceRoutes from "./module/attendance/routes/attendance.routes.ts";
+import dashboardRoutes from "./module/dashboard/routes/dashboard.routes.ts";
 import departmentRoutes from "./module/department/routes/department.routes.ts";
+import documentRoutes from "./module/document/routes/document.routes.ts";
 import employeeRoutes from "./module/employee/routes/employee.routes.ts";
+import engagementRoutes from "./module/engagement/routes/engagement.routes.ts";
+import helpdeskRoutes from "./module/helpdesk/routes/helpdesk.routes.ts";
 import leaveRoutes from "./module/leave/routes/leave.routes.ts";
+import letterRoutes from "./module/letter/routes/letter.routes.ts";
 import organizationRoutes from "./module/organization/routes/organization.routes.ts";
 import payrollRoutes from "./module/payroll/routes/payroll.routes.ts";
 import performanceRoutes from "./module/performance/routes/performance.routes.ts";
-import engagementRoutes from "./module/engagement/routes/engagement.routes.ts";
-import travelRoutes from "./module/travel/routes/travel.routes.ts";
-import timesheetRoutes from "./module/timesheet/routes/timesheet.routes.ts";
 import recruitmentRoutes from "./module/recruitment/routes/recruitment.routes.ts";
-import documentRoutes from "./module/document/routes/document.routes.ts";
-import assetRoutes from "./module/asset/routes/asset.routes.ts";
-import letterRoutes from "./module/letter/routes/letter.routes.ts";
-import helpdeskRoutes from "./module/helpdesk/routes/helpdesk.routes.ts";
-import attendanceRoutes from "./module/attendance/routes/attendance.routes.ts";
-import dashboardRoutes from "./module/dashboard/routes/dashboard.routes.ts";
 import subscriptionRoutes from "./module/subscription/routes/subscription.routes.ts";
-import { syncDatabase } from "./db/sync.ts";
+import timesheetRoutes from "./module/timesheet/routes/timesheet.routes.ts";
+import travelRoutes from "./module/travel/routes/travel.routes.ts";
+import authRoutes from "./module/user/routes/auth.routes.ts";
 
 import cors from "cors";
 
@@ -33,6 +33,17 @@ app.use(cors({
 
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ limit: "20mb", extended: true }));
+
+// Request logger middleware
+app.use((req, res, next) => {
+  console.log(`[API HIT] ${new Date().toISOString()} - ${req.method} ${req.originalUrl || req.url} from ${req.ip}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    const sanitizedBody = { ...req.body };
+    if (sanitizedBody.password) sanitizedBody.password = "******";
+    console.log(`[API BODY]`, JSON.stringify(sanitizedBody));
+  }
+  next();
+});
 
 import platformRoutes from "./module/platform/routes/platform.routes.ts";
 
@@ -73,12 +84,12 @@ app.use(errorMiddleware)
 
 // Sync database and start server
 syncDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT} (0.0.0.0)`);
   });
 }).catch((err) => {
   console.error("Database sync failed, starting server anyway...", err);
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT} (0.0.0.0)`);
   });
 });

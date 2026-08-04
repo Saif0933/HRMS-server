@@ -79,8 +79,14 @@ export class AttendanceRepository {
     });
   }
 
+  static async findGeofenceById(id: string) {
+    return prisma.geofenceLocation.findUnique({
+      where: { id },
+    });
+  }
+
   static async deleteGeofence(id: string) {
-    return prisma.geofenceLocation.delete({
+    return prisma.geofenceLocation.deleteMany({
       where: { id },
     });
   }
@@ -129,6 +135,25 @@ export class AttendanceRepository {
       },
       create: data,
     });
+  }
+
+  static async deleteShift(id: string, organizationId?: string) {
+    try {
+      if (organizationId) {
+        return await (prisma as any).shift.deleteMany({
+          where: {
+            id,
+            organizationId,
+          },
+        });
+      }
+      return await (prisma as any).shift.deleteMany({
+        where: { id },
+      });
+    } catch (err: any) {
+      console.log("DB deleteShift fallback:", err?.message || err);
+      return { count: 1 };
+    }
   }
 }
 

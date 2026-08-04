@@ -1,12 +1,12 @@
-import type { Response, NextFunction } from "express";
+import type { NextFunction, Response } from "express";
+import { prisma } from "../../../db/prisma.ts";
 import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.ts";
-import { DocumentService } from "../services/document.service.ts";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.ts";
 import { asyncHandler } from "../../../middlewares/error.middleware.ts";
 import { statusCode } from "../../../types/types.ts";
-import { uploadDocumentSchema } from "../validators/document.validator.ts";
 import { uploadBufferToCloudinary, uploadDataUriToCloudinary } from "../../../utils/cloudinary.util.ts";
-import { prisma } from "../../../db/prisma.ts";
+import { ErrorResponse, SuccessResponse } from "../../../utils/response.util.ts";
+import { DocumentService } from "../services/document.service.ts";
+import { uploadDocumentSchema } from "../validators/document.validator.ts";
 
 export const getDocuments = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const employeeId = req.query.employeeId as string | undefined;

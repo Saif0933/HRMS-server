@@ -7,10 +7,10 @@ import { statusCode } from "../../../types/types.ts";
 import { generateOTP, signToken } from "../../../utils/jwt.util.ts";
 import { ErrorResponse, SuccessResponse } from "../../../utils/response.util.ts";
 import {
-  loginSchema,
-  registerSchema,
-  sendOtpSchema,
-  verifyOtpSchema,
+    loginSchema,
+    registerSchema,
+    sendOtpSchema,
+    verifyOtpSchema,
 } from "../validators/auth.validator.ts";
 
 /**

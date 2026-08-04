@@ -47,6 +47,7 @@ model Employee {
   subordinates       Employee[]         @relation("ManagerRelation")
   user               User?              @relation(fields: [userId], references: [id])
   organization       Organization?      @relation(fields: [organizationId], references: [id])
+  shifts             Shift[]            @relation("EmployeeShifts")
   leaveAllocations   LeaveAllocation[]
   leaveRequests      LeaveRequest[]     @relation("EmployeeLeaveRequests")
   payrollRuns        PayrollRun[]
