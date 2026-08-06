@@ -1,6 +1,7 @@
 {
   "name": "hrms-server",
-  "module": "index.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "type": "module",
   "private": true,
   "scripts": {
