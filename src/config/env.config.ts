@@ -5,10 +5,10 @@ export const env = {
     url: process.env.DATABASE_URL,
   },
   jwt: {
-    secret: process.env.JWT_SECRET,
+    secret: process.env.JWT_SECRET || "default_hrms_jwt_secret_key_2026",
   },
   server: {
-    port: Number(process.env.PORT) || 5000,
+    port: process.env.PORT && !isNaN(Number(process.env.PORT)) ? Number(process.env.PORT) : 5000,
     nodeEnv: process.env.NODE_ENV || "development",
   },
   cloudinary: {

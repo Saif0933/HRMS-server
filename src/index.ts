@@ -80,16 +80,14 @@ app.get("/", (req, res) => {
 
 const PORT = env.server.port;
 
-app.use(errorMiddleware)
+app.use(errorMiddleware);
 
-// Sync database and start server
-syncDatabase().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT} (0.0.0.0)`);
-  });
-}).catch((err) => {
-  console.error("Database sync failed, starting server anyway...", err);
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT} (0.0.0.0)`);
-  });
+// Start Express server immediately so cloud deployment health checks pass
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT} (${env.server.nodeEnv})`);
+
+  // Sync database tables and permissions asynchronously in background
+  syncDatabase()
+    .then(() => console.log("[DB Sync] Database synchronization completed successfully."))
+    .catch((err) => console.error("[DB Sync] Database sync error:", err));
 });
