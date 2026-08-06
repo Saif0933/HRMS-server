@@ -22,13 +22,21 @@ export class AttendanceRepository {
     });
   }
 
-  static async findRegularizations() {
+  static async findRegularizations(organizationId?: string) {
     return prisma.attendanceRegularization.findMany({
+      where: organizationId
+        ? {
+            employee: {
+              organizationId,
+            },
+          }
+        : {},
       include: {
         employee: {
           select: {
             id: true,
             name: true,
+            organizationId: true,
           },
         },
       },
@@ -91,15 +99,25 @@ export class AttendanceRepository {
     });
   }
 
-  static async findRostersByWeek(week: string) {
+  static async findRostersByWeek(week: string, organizationId?: string) {
     return (prisma as any).shiftRoster.findMany({
-      where: { week },
+      where: {
+        week,
+        ...(organizationId
+          ? {
+              employee: {
+                organizationId,
+              },
+            }
+          : {}),
+      },
       include: {
         employee: {
           select: {
             id: true,
             name: true,
             designation: true,
+            organizationId: true,
           },
         },
       },

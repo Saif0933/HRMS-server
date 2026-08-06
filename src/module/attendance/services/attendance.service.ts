@@ -37,53 +37,53 @@ const formatPunchTime = (createdAt: Date, timeStr: string) => {
 };
 
 export class AttendanceService {
-  static async getPunches(employeeId: string) {
+  static async getPunches(employeeId: string, organizationId?: string, requestingUser?: any) {
+    let userEmp: any = null;
+    if (requestingUser) {
+      const userConditions: any[] = [];
+      if (requestingUser.id) userConditions.push({ userId: requestingUser.id });
+      if (requestingUser.id) userConditions.push({ id: requestingUser.id });
+      if (requestingUser.email) userConditions.push({ email: { equals: requestingUser.email, mode: "insensitive" } });
+      if (requestingUser.phone) userConditions.push({ phone: requestingUser.phone });
+
+      userEmp = await prisma.employee.findFirst({
+        where: {
+          OR: userConditions,
+          ...(organizationId ? { organizationId } : {}),
+        },
+      });
+    }
+
+    const userRoleName = requestingUser?.role?.name || requestingUser?.role;
+    const isAdmin = userRoleName === "Admin" || userRoleName === "HR Manager" || userRoleName === "SUPER_ADMIN" || requestingUser?.isPlatformAdmin;
+
     let resolvedId = employeeId;
+    if (!isAdmin || employeeId === "EMP001" || employeeId === "me" || !employeeId) {
+      if (userEmp) {
+        resolvedId = userEmp.id;
+      }
+    }
+
     const emp = await prisma.employee.findFirst({
       where: {
         OR: [
-          { id: employeeId },
-          { userId: employeeId },
-          { email: { equals: employeeId, mode: "insensitive" } },
+          { id: resolvedId },
+          { userId: resolvedId },
+          { email: { equals: resolvedId, mode: "insensitive" } },
         ],
+        ...(organizationId ? { organizationId } : {}),
       },
     });
+
     if (emp) {
       resolvedId = emp.id;
+    } else if (userEmp) {
+      resolvedId = userEmp.id;
+    } else if (organizationId) {
+      return [];
     }
 
-    let punches = await AttendanceRepository.findPunchesByEmployee(resolvedId);
-
-    if (punches.length === 0) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      await prisma.attendancePunch.create({
-        data: {
-          employeeId: resolvedId,
-          time: "Yesterday, 09:34 AM",
-          type: "In",
-          method: "Biometric Portal",
-          lat: 23.357445,
-          lng: 85.311484,
-          createdAt: yesterday,
-        },
-      });
-
-      await prisma.attendancePunch.create({
-        data: {
-          employeeId: resolvedId,
-          time: "Yesterday, 06:31 PM",
-          type: "Out",
-          method: "Biometric Portal",
-          lat: 23.357445,
-          lng: 85.311484,
-          createdAt: yesterday,
-        },
-      });
-
-      punches = await AttendanceRepository.findPunchesByEmployee(resolvedId);
-    }
+    const punches = await AttendanceRepository.findPunchesByEmployee(resolvedId);
 
     return punches.map((p) => ({
       id: p.id,
@@ -98,36 +98,69 @@ export class AttendanceService {
     }));
   }
 
-  static async createPunch(data: {
-    employeeId: string;
-    type: string;
-    method: string;
-    lat: number;
-    lng: number;
-    selfiePreview?: string | null;
-  }) {
+  static async createPunch(
+    data: {
+      employeeId: string;
+      type: string;
+      method: string;
+      lat: number;
+      lng: number;
+      selfiePreview?: string | null;
+    },
+    organizationId?: string,
+    requestingUser?: any
+  ) {
+    let userEmp: any = null;
+    if (requestingUser) {
+      const userConditions: any[] = [];
+      if (requestingUser.id) userConditions.push({ userId: requestingUser.id });
+      if (requestingUser.id) userConditions.push({ id: requestingUser.id });
+      if (requestingUser.email) userConditions.push({ email: { equals: requestingUser.email, mode: "insensitive" } });
+      if (requestingUser.phone) userConditions.push({ phone: requestingUser.phone });
+
+      userEmp = await prisma.employee.findFirst({
+        where: {
+          OR: userConditions,
+          ...(organizationId ? { organizationId } : {}),
+        },
+      });
+    }
+
+    const userRoleName = requestingUser?.role?.name || requestingUser?.role;
+    const isAdmin = userRoleName === "Admin" || userRoleName === "HR Manager" || userRoleName === "SUPER_ADMIN" || requestingUser?.isPlatformAdmin;
+
+    if ((!isAdmin || data.employeeId === "EMP001" || !data.employeeId) && userEmp) {
+      data.employeeId = userEmp.id;
+    }
+
     let employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
     });
-    if (!employee) {
+    if (!employee || (organizationId && employee.organizationId !== organizationId)) {
       employee = await prisma.employee.findFirst({
         where: {
           OR: [
+            { id: data.employeeId },
             { userId: data.employeeId },
             { email: { equals: data.employeeId, mode: "insensitive" } },
           ],
+          ...(organizationId ? { organizationId } : {}),
         },
       });
       if (employee) {
         data.employeeId = employee.id;
       }
     }
+    if (!employee && userEmp) {
+      employee = userEmp;
+      data.employeeId = userEmp.id;
+    }
     if (!employee) {
-      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+      throw new ErrorResponse("Employee not found in your organization context", statusCode.Not_Found);
     }
 
     // Geofencing Check
-    const fences = await this.getGeofences();
+    const fences = await this.getGeofences(organizationId);
     const activeFences = fences.filter(f => f.isActive);
 
     if (activeFences.length > 0) {
@@ -166,25 +199,8 @@ export class AttendanceService {
     });
   }
 
-  static async getRegularizations() {
-    let regs = await AttendanceRepository.findRegularizations();
-
-    if (regs.length === 0) {
-      const employee = await prisma.employee.findFirst();
-      const empId = employee?.id || null;
-
-      if (empId) {
-        await AttendanceRepository.createRegularization({
-          employeeId: empId,
-          date: "2026-06-25",
-          timeIn: "09:30 AM",
-          timeOut: "06:30 PM",
-          reason: "Forgot to punch due to client conference",
-        });
-
-        regs = await AttendanceRepository.findRegularizations();
-      }
-    }
+  static async getRegularizations(organizationId?: string) {
+    const regs = await AttendanceRepository.findRegularizations(organizationId);
 
     return regs.map((r) => ({
       id: r.id,
@@ -198,18 +214,64 @@ export class AttendanceService {
     }));
   }
 
-  static async applyRegularization(data: {
-    employeeId: string;
-    date: string;
-    timeIn: string;
-    timeOut: string;
-    reason: string;
-  }) {
-    const employee = await prisma.employee.findUnique({
+  static async applyRegularization(
+    data: {
+      employeeId: string;
+      date: string;
+      timeIn: string;
+      timeOut: string;
+      reason: string;
+    },
+    organizationId?: string,
+    requestingUser?: any
+  ) {
+    let userEmp: any = null;
+    if (requestingUser) {
+      const userConditions: any[] = [];
+      if (requestingUser.id) userConditions.push({ userId: requestingUser.id });
+      if (requestingUser.id) userConditions.push({ id: requestingUser.id });
+      if (requestingUser.email) userConditions.push({ email: { equals: requestingUser.email, mode: "insensitive" } });
+      if (requestingUser.phone) userConditions.push({ phone: requestingUser.phone });
+
+      userEmp = await prisma.employee.findFirst({
+        where: {
+          OR: userConditions,
+          ...(organizationId ? { organizationId } : {}),
+        },
+      });
+    }
+
+    const userRoleName = requestingUser?.role?.name || requestingUser?.role;
+    const isAdmin = userRoleName === "Admin" || userRoleName === "HR Manager" || userRoleName === "SUPER_ADMIN" || requestingUser?.isPlatformAdmin;
+
+    if ((!isAdmin || data.employeeId === "EMP001" || !data.employeeId) && userEmp) {
+      data.employeeId = userEmp.id;
+    }
+
+    let employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
     });
+    if (!employee || (organizationId && employee.organizationId !== organizationId)) {
+      employee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { id: data.employeeId },
+            { userId: data.employeeId },
+            { email: { equals: data.employeeId, mode: "insensitive" } },
+          ],
+          ...(organizationId ? { organizationId } : {}),
+        },
+      });
+      if (employee) {
+        data.employeeId = employee.id;
+      }
+    }
+    if (!employee && userEmp) {
+      employee = userEmp;
+      data.employeeId = userEmp.id;
+    }
     if (!employee) {
-      throw new ErrorResponse("Employee not found", statusCode.Not_Found);
+      throw new ErrorResponse("Employee not found in your organization context", statusCode.Not_Found);
     }
 
     // Standardize input times: convert HH:mm to 12-hour AM/PM format for consistency in reports
@@ -226,31 +288,32 @@ export class AttendanceService {
 
     return AttendanceRepository.createRegularization({
       ...data,
+      employeeId: employee.id,
       timeIn: formattedTimeIn,
       timeOut: formattedTimeOut,
     });
   }
 
-  static async updateRegularization(id: string, status: string) {
+  static async updateRegularization(id: string, status: string, organizationId?: string) {
     const req = await AttendanceRepository.findRegularizationById(id);
     if (!req) {
       throw new ErrorResponse("Regularization request not found", statusCode.Not_Found);
     }
+
+    if (organizationId) {
+      const emp = await prisma.employee.findFirst({
+        where: { id: req.employeeId, organizationId },
+      });
+      if (!emp) {
+        throw new ErrorResponse("You do not have permission to modify this regularization request", statusCode.Forbidden);
+      }
+    }
+
     return AttendanceRepository.updateRegularizationStatus(id, status);
   }
 
-  static async getGeofences() {
-    let geofences = await AttendanceRepository.findGeofences();
-    if (geofences.length === 0) {
-      await AttendanceRepository.createGeofence({
-        name: "Mumbai HQ (Main Branch)",
-        lat: 19.0760,
-        lng: 72.8777,
-        radius: 100, // 100 meters
-        isActive: true,
-      });
-      geofences = await AttendanceRepository.findGeofences();
-    }
+  static async getGeofences(organizationId?: string) {
+    const geofences = await AttendanceRepository.findGeofences();
     return geofences;
   }
 
@@ -260,11 +323,11 @@ export class AttendanceService {
     lng: number;
     radius: number;
     isActive?: boolean;
-  }) {
+  }, organizationId?: string) {
     return AttendanceRepository.createGeofence(data);
   }
 
-  static async deleteGeofence(id: string) {
+  static async deleteGeofence(id: string, organizationId?: string) {
     const existing = await AttendanceRepository.findGeofenceById(id);
     if (!existing) {
       return { id };
@@ -273,22 +336,40 @@ export class AttendanceService {
     return { id };
   }
 
-  static async getRosters(week: string) {
-    return AttendanceRepository.findRostersByWeek(week);
+  static async getRosters(week: string, organizationId?: string) {
+    return AttendanceRepository.findRostersByWeek(week, organizationId);
   }
 
-  static async saveRosters(week: string, rosters: Array<{
-    employeeId: string;
-    mon: string;
-    tue: string;
-    wed: string;
-    thu: string;
-    fri: string;
-    sat: string;
-    sun: string;
-  }>) {
+  static async saveRosters(
+    week: string,
+    rosters: Array<{
+      employeeId: string;
+      mon: string;
+      tue: string;
+      wed: string;
+      thu: string;
+      fri: string;
+      sat: string;
+      sun: string;
+    }>,
+    organizationId?: string
+  ) {
     const results = [];
     for (const item of rosters) {
+      if (organizationId) {
+        const emp = await prisma.employee.findFirst({
+          where: {
+            OR: [
+              { id: item.employeeId },
+              { userId: item.employeeId },
+            ],
+            organizationId,
+          },
+        });
+        if (!emp) continue;
+        item.employeeId = emp.id;
+      }
+
       const res = await AttendanceRepository.upsertRoster({
         ...item,
         week,
