@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "start": "node dist/index.js",
+    "build": "bun build src/index.ts --outdir ./dist --target node",
     "generate": "prisma generate",
     "db:seed": "prisma db seed"
   },
