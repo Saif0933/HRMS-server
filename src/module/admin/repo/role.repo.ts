@@ -21,17 +21,59 @@ export class RoleRepository {
   }
 
   static async findPermissionsByIds(ids: string[]) {
-    return prisma.permission.findMany({
+    if (!ids || ids.length === 0) return [];
+
+    let found = await prisma.permission.findMany({
       where: {
-        id: { in: ids },
+        OR: [
+          { id: { in: ids } },
+          { name: { in: ids } },
+        ],
       },
     });
+
+    const foundIdentifiers = new Set([
+      ...found.map((p) => p.id),
+      ...found.map((p) => p.name),
+    ]);
+
+    const missingNames = ids.filter((id) => !foundIdentifiers.has(id));
+
+    if (missingNames.length > 0) {
+      for (const name of missingNames) {
+        if (typeof name === "string" && (name.includes("_") || name === name.toUpperCase())) {
+          try {
+            const created = await prisma.permission.upsert({
+              where: { name },
+              update: {},
+              create: {
+                name,
+                description: `Permission for ${name}`,
+                module: name.split("_")[1]?.toLowerCase() || "general",
+              },
+            });
+            found.push(created);
+          } catch (e) {
+            // Ignore concurrent creation error
+          }
+        }
+      }
+    }
+
+    return found;
   }
 
   // Role Operations — now org-scoped
   static async findRoleByName(name: string, organizationId: string) {
     return prisma.role.findFirst({
-      where: { name, organizationId },
+      where: {
+        name: { equals: name, mode: "insensitive" },
+        OR: [
+          { organizationId },
+          { organizationId: null },
+          { isSystem: true },
+        ],
+      },
     });
   }
 
@@ -51,6 +93,9 @@ export class RoleRepository {
     organizationId: string;
   }) {
     const { name, description, permissionIds, organizationId } = data;
+    const dbPermissions = await RoleRepository.findPermissionsByIds(permissionIds);
+    const actualIds = dbPermissions.map((p) => p.id);
+
     return prisma.role.create({
       data: {
         name,
@@ -58,7 +103,7 @@ export class RoleRepository {
         isSystem: false,
         organizationId,
         permissions: {
-          connect: permissionIds.map((id) => ({ id })),
+          connect: actualIds.map((id) => ({ id })),
         },
       },
       include: {
@@ -69,7 +114,13 @@ export class RoleRepository {
 
   static async findAllRoles(organizationId: string) {
     return prisma.role.findMany({
-      where: { organizationId },
+      where: {
+        OR: [
+          { organizationId },
+          { organizationId: null },
+          { isSystem: true },
+        ],
+      },
       include: {
         permissions: true,
       },
@@ -88,8 +139,10 @@ export class RoleRepository {
     };
 
     if (permissionIds) {
+      const dbPermissions = await RoleRepository.findPermissionsByIds(permissionIds);
+      const actualIds = dbPermissions.map((p) => p.id);
       updateData.permissions = {
-        set: permissionIds.map((permId) => ({ id: permId })),
+        set: actualIds.map((permId) => ({ id: permId })),
       };
     }
 

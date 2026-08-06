@@ -31,8 +31,9 @@ export class RoleService {
       throw new ErrorResponse("Role with this name already exists in your organization", statusCode.Conflict);
     }
 
-    const dbPermissions = await RoleRepository.findPermissionsByIds(data.permissionIds);
-    if (dbPermissions.length !== data.permissionIds.length) {
+    const uniqueIds = Array.from(new Set(data.permissionIds || []));
+    const dbPermissions = await RoleRepository.findPermissionsByIds(uniqueIds);
+    if (dbPermissions.length !== uniqueIds.length) {
       throw new ErrorResponse("One or more permission IDs are invalid", statusCode.Bad_Request);
     }
 
@@ -77,8 +78,9 @@ export class RoleService {
     }
 
     if (data.permissionIds) {
-      const dbPermissions = await RoleRepository.findPermissionsByIds(data.permissionIds);
-      if (dbPermissions.length !== data.permissionIds.length) {
+      const uniqueIds = Array.from(new Set(data.permissionIds));
+      const dbPermissions = await RoleRepository.findPermissionsByIds(uniqueIds);
+      if (dbPermissions.length !== uniqueIds.length) {
         throw new ErrorResponse("One or more permission IDs are invalid", statusCode.Bad_Request);
       }
     }
@@ -110,6 +112,22 @@ export class RoleService {
       throw new ErrorResponse("Organization context is required to assign roles", statusCode.Bad_Request);
     }
 
+    let resolvedRole: any = null;
+    let targetRoleId: string | null = roleId;
+
+    if (roleId) {
+      // Find role by ID or Name
+      resolvedRole = await RoleRepository.findRoleById(roleId, false);
+      if (!resolvedRole) {
+        resolvedRole = await RoleRepository.findRoleByName(roleId, organizationId);
+      }
+      if (resolvedRole) {
+        targetRoleId = resolvedRole.id;
+      } else {
+        throw new ErrorResponse(`Role '${roleId}' not found in your organization context.`, statusCode.Not_Found);
+      }
+    }
+
     let user = await RoleRepository.findUserById(userId);
 
     // If User is not found, check if there is an Employee matching this identifier (id, email, or phone)
@@ -131,14 +149,16 @@ export class RoleService {
             name: employee.name,
             email: employee.email,
             phone: employee.phone,
-            roleId: roleId
+            roleId: targetRoleId
           }
         });
 
         // Link the Employee to the new User account
         await prisma.employee.update({
           where: { id: employee.id },
-          data: { userId: user.id }
+          data: {
+            userId: user.id
+          }
         });
 
         // Create membership for the user in the organization
@@ -146,7 +166,7 @@ export class RoleService {
           data: {
             userId: user.id,
             organizationId,
-            roleId: roleId,
+            roleId: targetRoleId,
             status: "ACTIVE",
           }
         });
@@ -157,46 +177,47 @@ export class RoleService {
       throw new ErrorResponse("User not found and no matching employee record could be resolved to auto-create user account.", statusCode.Not_Found);
     }
 
-    // If User exists, validate the Role if one is specified
-    if (roleId) {
-      const role = await RoleRepository.findRoleById(roleId, false);
-      if (!role) {
-        throw new ErrorResponse("Role not found", statusCode.Not_Found);
-      }
-
-      // Verify the role belongs to the same organization
-      if (role.organizationId !== organizationId) {
-        throw new ErrorResponse("Cannot assign a role from a different organization", statusCode.Forbidden);
-      }
-    }
-
-    // Ensure the Employee record is correctly linked to this User if they match by email or phone
+    // Ensure the Employee record is correctly linked to this User and has updated role name
     const matchingEmployee = await prisma.employee.findFirst({
       where: {
         OR: [
+          { userId: user.id },
+          { id: userId },
           { email: user.email || undefined },
           { phone: user.phone || undefined }
         ]
       }
     });
-    if (matchingEmployee && matchingEmployee.userId !== user.id) {
+
+    if (matchingEmployee) {
       await prisma.employee.update({
         where: { id: matchingEmployee.id },
-        data: { userId: user.id }
+        data: {
+          userId: user.id
+        }
       });
     }
 
     // Update the user's roleId
-    const updatedUser = await RoleRepository.updateUserRoleId(user.id, roleId);
+    const updatedUser = await RoleRepository.updateUserRoleId(user.id, targetRoleId);
 
-    // Also update the membership roleId for this org
+    // Also update or create the membership roleId for this org
     const membership = await prisma.membership.findFirst({
       where: { userId: user.id, organizationId },
     });
     if (membership) {
       await prisma.membership.update({
         where: { id: membership.id },
-        data: { roleId },
+        data: { roleId: targetRoleId },
+      });
+    } else if (organizationId) {
+      await prisma.membership.create({
+        data: {
+          userId: user.id,
+          organizationId,
+          roleId: targetRoleId,
+          status: "ACTIVE",
+        },
       });
     }
 

@@ -25,7 +25,8 @@ router.delete("/roles/:id", hasPermission("UPDATE_ROLES_PERMISSIONS", "DELETE_AD
 router.get("/permissions", hasPermission("VIEW_ROLES_PERMISSIONS", "VIEW_ADMIN"), getPermissions);
 router.post("/permissions", hasPermission("UPDATE_ROLES_PERMISSIONS", "CREATE_ADMIN"), createPermission);
 
-// User assignment route
+// User assignment routes (supports both /assign-role and /roles/assign)
 router.post("/assign-role", hasPermission("UPDATE_ROLES_PERMISSIONS", "UPDATE_ADMIN"), assignRoleToUser);
+router.post("/roles/assign", hasPermission("UPDATE_ROLES_PERMISSIONS", "UPDATE_ADMIN"), assignRoleToUser);
 
 export default router;

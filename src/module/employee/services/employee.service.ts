@@ -312,7 +312,26 @@ export class EmployeeService {
     }
 
     if (data.password) {
-      data.password = crypto.createHash("sha256").update(data.password).digest("hex");
+      const hashedPassword = crypto.createHash("sha256").update(data.password).digest("hex");
+      data.password = hashedPassword;
+
+      // Sync password to associated User account so login succeeds
+      const targetUserId = data.userId || employee.userId;
+      if (targetUserId) {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { password: hashedPassword }
+        }).catch(err => console.warn("[Employee Service] Failed to sync user password on update:", err.message));
+      } else if (employee.email || data.email) {
+        const targetEmail = data.email || employee.email;
+        const userByEmail = await prisma.user.findFirst({ where: { email: targetEmail } });
+        if (userByEmail) {
+          await prisma.user.update({
+            where: { id: userByEmail.id },
+            data: { password: hashedPassword }
+          }).catch(err => console.warn("[Employee Service] Failed to sync user password on update:", err.message));
+        }
+      }
     }
 
     return EmployeeRepository.update(id, data);
