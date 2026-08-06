@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 /**
  * Generates a cryptographically secure 4-digit OTP
@@ -15,7 +15,8 @@ export const generateOTP = (): string => {
  * @param expiresInSeconds The token expiration time in seconds (default: 30 days)
  */
 export const signToken = (payload: any, secret: string, expiresInSeconds: number = 86400 * 30): string => {
-  return jwt.sign(payload, secret, {
+  const jwtSign = jwt.sign || (jwt as any).default?.sign;
+  return jwtSign(payload, secret, {
     expiresIn: expiresInSeconds,
   });
 };
@@ -26,5 +27,6 @@ export const signToken = (payload: any, secret: string, expiresInSeconds: number
  * @param secret The secret key used to sign the token
  */
 export const verifyToken = (token: string, secret: string): any => {
-  return jwt.verify(token, secret);
+  const jwtVerify = jwt.verify || (jwt as any).default?.verify;
+  return jwtVerify(token, secret);
 };
