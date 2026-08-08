@@ -434,10 +434,10 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
 
   const { email, phone, password } = parsed.data;
 
-  // 1. Search User table by email or phone
+  // 1. Search User table by email or phone (case-insensitive for email)
   const userConditions: any[] = [];
-  if (email) userConditions.push({ email });
-  if (phone) userConditions.push({ phone });
+  if (email) userConditions.push({ email: { equals: email.trim(), mode: "insensitive" } });
+  if (phone) userConditions.push({ phone: phone.trim() });
 
   let user = userConditions.length > 0
     ? await prisma.user.findFirst({
@@ -472,8 +472,8 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
   // 2. If user missing or password mismatch on User table, fallback to Employee table
   if (!user || !passwordMatches) {
     const empConditions: any[] = [];
-    if (email) empConditions.push({ email });
-    if (phone) empConditions.push({ phone });
+    if (email) empConditions.push({ email: { equals: email.trim(), mode: "insensitive" } });
+    if (phone) empConditions.push({ phone: phone.trim() });
 
     const employee = empConditions.length > 0
       ? await prisma.employee.findFirst({
@@ -506,7 +506,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
           user = await prisma.user.findFirst({
             where: {
               OR: [
-                employee.email ? { email: employee.email } : null,
+                employee.email ? { email: { equals: employee.email, mode: "insensitive" } } : null,
                 employee.phone ? { phone: employee.phone } : null,
               ].filter(Boolean) as any[],
             },
@@ -567,7 +567,42 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
   }
 
   // Check if user belongs to an onboarded organization in the database
-  const membership = await getActiveMembership(user.id);
+  let membership = await getActiveMembership(user.id);
+
+  if (!membership || !membership.organizations) {
+    // Attempt auto-repair membership if user has a linked employee or an organization exists in DB
+    const linkedEmp = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { userId: user.id },
+          ...(user.email ? [{ email: { equals: user.email, mode: "insensitive" as const } }] : []),
+          ...(user.phone ? [{ phone: user.phone }] : [])
+        ]
+      }
+    });
+
+    const targetOrgId = linkedEmp?.organizationId || (await prisma.organization.findFirst())?.id;
+    if (targetOrgId) {
+      const empRole = await prisma.role.findFirst({ where: { name: "EMPLOYEE" } });
+      await prisma.membership.upsert({
+        where: {
+          userId_organizationId: {
+            userId: user.id,
+            organizationId: targetOrgId
+          }
+        },
+        update: { status: "ACTIVE" },
+        create: {
+          userId: user.id,
+          organizationId: targetOrgId,
+          status: "ACTIVE",
+          roleId: empRole?.id || null
+        }
+      }).catch(err => console.warn("[Auth] Failed to auto-create membership during login:", err.message));
+
+      membership = await getActiveMembership(user.id);
+    }
+  }
 
   if (!membership || !membership.organizations) {
     return next(

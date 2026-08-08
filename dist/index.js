@@ -12117,10 +12117,8 @@ var EmployeeService = class {
       }
     }
     data.id = employeeId;
-    const existingEmail = await EmployeeRepository.findByEmail(data.email);
-    if (existingEmail) {
-      const parts = (data.email || "employee@example.com").split("@");
-      data.email = `${parts[0]}.${Date.now().toString().slice(-4)}@${parts[1] || "example.com"}`;
+    if (data.email) {
+      data.email = data.email.toLowerCase().trim();
     }
     if (data.userId) {
       const user = await EmployeeRepository.findUserById(data.userId);
@@ -12175,41 +12173,25 @@ var EmployeeService = class {
         if (data.userId) {
           const userObj = await prisma.user.findUnique({ where: { id: data.userId } });
           if (userObj) {
-            const alreadyBound = await prisma.employee.findUnique({ where: { userId: userObj.id } });
-            if (!alreadyBound) {
-              targetUser = userObj;
-            }
+            targetUser = userObj;
           }
         }
         if (!targetUser) {
-          const searchConditions = [];
-          if (data.email) searchConditions.push({ email: data.email });
-          if (data.phone) searchConditions.push({ phone: data.phone });
-          if (searchConditions.length > 0) {
-            const candidateUsers = await prisma.user.findMany({
-              where: { OR: searchConditions }
-            });
-            for (const cand of candidateUsers) {
-              const alreadyBound = await prisma.employee.findUnique({
-                where: { userId: cand.id }
-              });
-              if (!alreadyBound) {
-                targetUser = cand;
-                break;
-              }
+          const searchEmail = data.email.toLowerCase().trim();
+          const candidateUsers = await prisma.user.findMany({
+            where: {
+              OR: [
+                { email: { equals: searchEmail, mode: "insensitive" } },
+                ...data.phone ? [{ phone: data.phone }] : []
+              ]
             }
+          });
+          if (candidateUsers.length > 0) {
+            targetUser = candidateUsers[0];
           }
         }
         if (!targetUser) {
-          let userEmail = data.email;
           let userPhone = data.phone || null;
-          if (userEmail) {
-            const existingEmailUser = await prisma.user.findUnique({ where: { email: userEmail } });
-            if (existingEmailUser) {
-              const parts = userEmail.split("@");
-              userEmail = `${parts[0]}.${Date.now().toString().slice(-4)}@${parts[1] || "example.com"}`;
-            }
-          }
           if (userPhone) {
             const existingPhoneUser = await prisma.user.findUnique({ where: { phone: userPhone } });
             if (existingPhoneUser) {
@@ -12219,7 +12201,7 @@ var EmployeeService = class {
           targetUser = await prisma.user.create({
             data: {
               name: data.name,
-              email: userEmail,
+              email: data.email,
               phone: userPhone,
               password: hashedPassword,
               roleId: empRole?.id || null
@@ -12236,15 +12218,16 @@ var EmployeeService = class {
           });
         }
         data.userId = targetUser.id;
-        if (organizationId) {
+        const effectiveOrgId2 = organizationId || (await prisma.organization.findFirst())?.id;
+        if (effectiveOrgId2) {
           const existingMembership = await prisma.membership.findFirst({
-            where: { userId: targetUser.id, organizationId }
+            where: { userId: targetUser.id, organizationId: effectiveOrgId2 }
           });
           if (!existingMembership) {
             await prisma.membership.create({
               data: {
                 userId: targetUser.id,
-                organizationId,
+                organizationId: effectiveOrgId2,
                 status: "ACTIVE",
                 roleId: empRole?.id || null
               }
@@ -12255,10 +12238,11 @@ var EmployeeService = class {
         console.warn("[Employee Service] Could not sync User table/membership during employee creation:", userErr.message);
       }
     }
+    const effectiveOrgId = organizationId || (await prisma.organization.findFirst())?.id || null;
     const createData = {
       ...data,
       id: employeeId,
-      organizationId: organizationId || null
+      organizationId: effectiveOrgId
     };
     return EmployeeRepository.create(createData);
   }
@@ -17368,8 +17352,8 @@ var login = asyncHandler(async (req, res, next) => {
   }
   const { email, phone, password } = parsed.data;
   const userConditions = [];
-  if (email) userConditions.push({ email });
-  if (phone) userConditions.push({ phone });
+  if (email) userConditions.push({ email: { equals: email.trim(), mode: "insensitive" } });
+  if (phone) userConditions.push({ phone: phone.trim() });
   let user = userConditions.length > 0 ? await prisma.user.findFirst({
     where: { OR: userConditions },
     include: {
@@ -17396,8 +17380,8 @@ var login = asyncHandler(async (req, res, next) => {
   }
   if (!user || !passwordMatches) {
     const empConditions = [];
-    if (email) empConditions.push({ email });
-    if (phone) empConditions.push({ phone });
+    if (email) empConditions.push({ email: { equals: email.trim(), mode: "insensitive" } });
+    if (phone) empConditions.push({ phone: phone.trim() });
     const employee2 = empConditions.length > 0 ? await prisma.employee.findFirst({
       where: { OR: empConditions }
     }) : null;
@@ -17420,7 +17404,7 @@ var login = asyncHandler(async (req, res, next) => {
           user = await prisma.user.findFirst({
             where: {
               OR: [
-                employee2.email ? { email: employee2.email } : null,
+                employee2.email ? { email: { equals: employee2.email, mode: "insensitive" } } : null,
                 employee2.phone ? { phone: employee2.phone } : null
               ].filter(Boolean)
             },
@@ -17475,7 +17459,38 @@ var login = asyncHandler(async (req, res, next) => {
   if (!user || !passwordMatches) {
     return next(new ErrorResponse("Invalid credentials", 401 /* Unauthorized */));
   }
-  const membership = await getActiveMembership(user.id);
+  let membership = await getActiveMembership(user.id);
+  if (!membership || !membership.organizations) {
+    const linkedEmp = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { userId: user.id },
+          ...user.email ? [{ email: { equals: user.email, mode: "insensitive" } }] : [],
+          ...user.phone ? [{ phone: user.phone }] : []
+        ]
+      }
+    });
+    const targetOrgId = linkedEmp?.organizationId || (await prisma.organization.findFirst())?.id;
+    if (targetOrgId) {
+      const empRole = await prisma.role.findFirst({ where: { name: "EMPLOYEE" } });
+      await prisma.membership.upsert({
+        where: {
+          userId_organizationId: {
+            userId: user.id,
+            organizationId: targetOrgId
+          }
+        },
+        update: { status: "ACTIVE" },
+        create: {
+          userId: user.id,
+          organizationId: targetOrgId,
+          status: "ACTIVE",
+          roleId: empRole?.id || null
+        }
+      }).catch((err) => console.warn("[Auth] Failed to auto-create membership during login:", err.message));
+      membership = await getActiveMembership(user.id);
+    }
+  }
   if (!membership || !membership.organizations) {
     return next(
       new ErrorResponse(
