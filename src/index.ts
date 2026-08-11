@@ -45,10 +45,12 @@ app.use((req, res, next) => {
   next();
 });
 
+import adminAuthRoutes from "./module/admin/routes/admin.routes.ts";
 import platformRoutes from "./module/platform/routes/platform.routes.ts";
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/platform", platformRoutes);
+app.use("/api/v1/admin/auth", adminAuthRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/departments", departmentRoutes);
 app.use("/api/v1/employees", employeeRoutes);

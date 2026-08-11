@@ -153,23 +153,20 @@ export const saveRosters = asyncHandler(async (req: Request, res: Response, next
   );
 });
 
-let inMemoryShiftTimings: any[] = [];
-
 export const getShiftTimings = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const organizationId = (req as any).user?.organizationId;
+  const timings = await AttendanceService.getShiftTimings(organizationId);
   return SuccessResponse(
     res,
     "Shift timings retrieved successfully",
-    inMemoryShiftTimings,
+    timings,
     statusCode.OK
   );
 });
 
 export const createShiftTiming = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const newTiming = {
-    id: `ST_${Date.now()}`,
-    ...req.body,
-  };
-  inMemoryShiftTimings.push(newTiming);
+  const organizationId = (req as any).user?.organizationId;
+  const newTiming = await AttendanceService.createShiftTiming(req.body, organizationId);
   return SuccessResponse(
     res,
     "Shift timing created successfully",
@@ -180,7 +177,8 @@ export const createShiftTiming = asyncHandler(async (req: Request, res: Response
 
 export const deleteShiftTiming = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
-  inMemoryShiftTimings = inMemoryShiftTimings.filter(t => t.id !== id);
+  const organizationId = (req as any).user?.organizationId;
+  await AttendanceService.deleteShiftTiming(id, organizationId);
   return SuccessResponse(
     res,
     "Shift timing deleted successfully",

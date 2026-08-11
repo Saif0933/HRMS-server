@@ -1,6 +1,6 @@
+import crypto from "crypto";
 import { prisma } from "../../../db/prisma.ts";
 import type { CreateOrganizationInput, UpdateOrganizationInput } from "../validators/organization.validator.ts";
-import crypto from "crypto";
 
 const hashPassword = (password: string): string => {
   return crypto.createHash("sha256").update(password).digest("hex");

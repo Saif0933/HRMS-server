@@ -1181,6 +1181,24 @@ export async function syncDatabase() {
     `);
 
     await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "shifts" (
+        "id" TEXT NOT NULL,
+        "organizationId" TEXT,
+        "code" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "startTime" TEXT NOT NULL,
+        "endTime" TEXT NOT NULL,
+        "shortLabel" TEXT,
+        "color" TEXT,
+        "bgColor" TEXT,
+        "isSystem" BOOLEAN NOT NULL DEFAULT FALSE,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "shifts_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "audit_logs" (
         "id" TEXT NOT NULL,
         "user" TEXT NOT NULL,

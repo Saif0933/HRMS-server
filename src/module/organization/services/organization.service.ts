@@ -1,15 +1,15 @@
 import { prisma } from "../../../db/prisma.ts";
-import { ErrorResponse } from "../../../utils/response.util.ts";
 import { statusCode } from "../../../types/types.ts";
+import { ErrorResponse } from "../../../utils/response.util.ts";
 import {
-  OrganizationRepository,
-  MembershipRepository,
+    MembershipRepository,
+    OrganizationRepository,
 } from "../repo/organization.repo.ts";
 import type {
-  CreateOrganizationInput,
-  UpdateOrganizationInput,
-  AddMemberInput,
-  UpdateMembershipInput,
+    AddMemberInput,
+    CreateOrganizationInput,
+    UpdateMembershipInput,
+    UpdateOrganizationInput,
 } from "../validators/organization.validator.ts";
 
 // ─── Organization Service ────────────────────────────────────────────────────

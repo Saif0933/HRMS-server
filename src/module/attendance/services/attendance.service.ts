@@ -83,7 +83,8 @@ export class AttendanceService {
       return [];
     }
 
-    const punches = await AttendanceRepository.findPunchesByEmployee(resolvedId);
+    const targetUserId = emp?.userId || userEmp?.userId || undefined;
+    const punches = await AttendanceRepository.findPunchesByEmployee(resolvedId, targetUserId);
 
     return punches.map((p) => ({
       id: p.id,
@@ -186,12 +187,23 @@ export class AttendanceService {
 
     // Format check time: e.g. "Today, 09:45 AM"
     const now = new Date();
-    let hours = now.getHours();
-    const minutes = now.getMinutes().toString().padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
-    const timeString = `Today, ${hours.toString().padStart(2, "0")}:${minutes} ${ampm}`;
+    let timeString = "";
+    try {
+      const timeFormatted = now.toLocaleTimeString("en-US", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+      timeString = `Today, ${timeFormatted}`;
+    } catch (e) {
+      let hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      timeString = `Today, ${hours.toString().padStart(2, "0")}:${minutes} ${ampm}`;
+    }
 
     return AttendanceRepository.createPunch({
       ...data,
@@ -340,6 +352,29 @@ export class AttendanceService {
     return AttendanceRepository.findRostersByWeek(week, organizationId);
   }
 
+  static async getShiftTimings(organizationId?: string) {
+    return AttendanceRepository.findShifts(organizationId);
+  }
+
+  static async createShiftTiming(data: any, organizationId?: string) {
+    const shiftData = {
+      id: `ST_${Date.now()}`,
+      name: data.name,
+      code: data.code || data.name?.toUpperCase().replace(/\s+/g, "_") || "SHIFT",
+      startTime: data.startTime || "09:00 AM",
+      endTime: data.endTime || "06:00 PM",
+      shortLabel: data.shortLabel || data.code || "S",
+      color: data.color || "#10b981",
+      bgColor: data.bgColor || "rgba(16, 185, 129, 0.12)",
+      organizationId: organizationId || data.organizationId || null,
+    };
+    return AttendanceRepository.createShift(shiftData);
+  }
+
+  static async deleteShiftTiming(id: string, organizationId?: string) {
+    return AttendanceRepository.deleteShift(id, organizationId);
+  }
+
   static async saveRosters(
     week: string,
     rosters: Array<{
@@ -356,22 +391,24 @@ export class AttendanceService {
   ) {
     const results = [];
     for (const item of rosters) {
-      if (organizationId) {
-        const emp = await prisma.employee.findFirst({
-          where: {
-            OR: [
-              { id: item.employeeId },
-              { userId: item.employeeId },
-            ],
-            organizationId,
-          },
-        });
-        if (!emp) continue;
-        item.employeeId = emp.id;
+      let resolvedEmpId = item.employeeId;
+      const emp = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { id: item.employeeId },
+            { userId: item.employeeId },
+            { email: { equals: item.employeeId, mode: "insensitive" } },
+          ],
+          ...(organizationId ? { organizationId } : {}),
+        },
+      });
+      if (emp) {
+        resolvedEmpId = emp.id;
       }
 
       const res = await AttendanceRepository.upsertRoster({
         ...item,
+        employeeId: resolvedEmpId,
         week,
       });
       results.push(res);
