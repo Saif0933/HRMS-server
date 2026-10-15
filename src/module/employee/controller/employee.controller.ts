@@ -69,7 +69,6 @@ export const getEmployeeById = asyncHandler(async (req: Request, res: Response, 
   );
 });
 
-
 export const updateEmployee = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const parsed = updateEmployeeSchema.safeParse(req.body);
@@ -77,6 +76,7 @@ export const updateEmployee = asyncHandler(async (req: Request, res: Response, n
     return next(parsed.error);
   }
 
+  
   const updatedEmployee = await EmployeeService.updateEmployee(id, parsed.data);
 
   return SuccessResponse(
