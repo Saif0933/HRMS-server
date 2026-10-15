@@ -69,6 +69,7 @@ export const getEmployeeById = asyncHandler(async (req: Request, res: Response, 
   );
 });
 
+
 export const updateEmployee = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.id as string;
   const parsed = updateEmployeeSchema.safeParse(req.body);
